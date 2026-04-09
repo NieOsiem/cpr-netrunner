@@ -1,0 +1,209 @@
+<div class="editor-layout">
+
+  <div class="editor-sidebar">
+    <div class="sidebar-title">// ARCHITECTURES</div>
+    <div class="arch-list">
+      {{#each archList}}
+      <div class="arch-list-item {{#if (eq this.id ../arch.id)}}active{{/if}}"
+           data-arch-id="{{this.id}}">
+        <span class="arch-list-name">{{this.name}}</span>
+        <span class="arch-list-meta">{{this.difficulty}} · {{countNodes this}} nodes</span>
+      </div>
+      {{else}}
+      <div class="empty-hint">No architectures yet.</div>
+      {{/each}}
+    </div>
+    <div class="sidebar-actions">
+      <button class="btn-new-arch">+ New</button>
+      <button class="btn-generate">⚄ Generate</button>
+    </div>
+  </div>
+
+  <div class="editor-center">
+    {{#if arch}}
+    <div class="arch-meta-bar">
+      <input class="arch-name-input" type="text" value="{{arch.name}}" placeholder="Architecture name"/>
+      <select class="arch-diff-select">
+        {{#each difficulties}}
+        <option value="{{this}}" {{#if (eq this ../arch.difficulty)}}selected{{/if}}>{{this}}</option>
+        {{/each}}
+      </select>
+      <span class="dirty-dot {{#if dirty}}show{{/if}}">●</span>
+      <div class="meta-btn-row">
+        <button class="btn-save-arch {{#if dirty}}dirty{{/if}}">Save</button>
+        <button class="btn-open-run">▶ Run</button>
+        {{#if arch.id}}<button class="btn-delete-arch danger">✕</button>{{/if}}
+      </div>
+    </div>
+    {{#if arch.id}}
+    <div class="arch-id-bar">
+      <span class="arch-id-label">ID:</span>
+      <code class="arch-id-val">{{arch.id}}</code>
+      <button class="btn-copy-id xsm">Copy</button>
+    </div>
+    {{/if}}
+    <div class="editor-tree-scroll">
+      {{{treeHtml}}}
+    </div>
+    <div class="arch-notes-bar">
+      <label>GM Notes:</label>
+      <textarea class="arch-notes-ta" rows="2" placeholder="Context, notes, Meatspace links…">{{arch.notes}}</textarea>
+    </div>
+    {{else}}
+    <div class="editor-empty">
+      <p>// SELECT OR CREATE AN ARCHITECTURE //</p>
+      <button class="btn-new-arch large">+ New Architecture</button>
+      <button class="btn-generate large">⚄ Generate Random</button>
+    </div>
+    {{/if}}
+  </div>
+
+  <div class="editor-props">
+    {{#if selNode}}
+    <div class="props-title">// NODE
+      <span class="props-coord">({{selNode.col}},{{selNode.row}})</span>
+    </div>
+
+    <div class="prop-group">
+      <label>Type</label>
+      <select class="prop-type-sel">
+        {{#each nodeTypes}}
+        <option value="{{@key}}" {{#if (eq @key ../selNode.type)}}selected{{/if}}>{{this.label}}</option>
+        {{/each}}
+      </select>
+    </div>
+
+    <div class="prop-group">
+      <label>Primary Label <small>(overrides auto)</small></label>
+      <input class="prop-label" type="text" value="{{selNode.label}}" placeholder="Auto"/>
+    </div>
+
+    <div class="prop-group">
+      <label>Secondary Label <small>(e.g. "Arasaka.rar")</small></label>
+      <input class="prop-subtitle" type="text" value="{{selNode.subtitle}}" placeholder="Optional subtitle…"/>
+    </div>
+
+    <div class="prop-group">
+      <label>Floor Tile</label>
+      <div class="tile-variant-row">
+        {{#if selNode.tileUrl}}
+        <img class="tile-variant-preview" src="{{selNode.tileUrl}}.webp" draggable="false"
+             title="{{selNode.tileUrl}}"/>
+        {{/if}}
+        <button class="btn-pick-tile">Choose…</button>
+      </div>
+    </div>
+
+    {{#if (eq selNode.type "black_ice")}}
+    <div class="prop-group">
+      <label>Spawns on this tile</label>
+      <div class="spawn-list">
+        {{#each selNode.data.spawns}}
+        <div class="spawn-row">
+          <span class="spawn-name">{{this.iceName}}</span>
+          <select class="spawn-disp-sel xsm" data-idx="{{@index}}">
+            <option value="enemy"    {{#if (eq this.disposition "enemy")}}selected{{/if}}>Enemy</option>
+            <option value="neutral"  {{#if (eq this.disposition "neutral")}}selected{{/if}}>Neutral</option>
+            <option value="friendly" {{#if (eq this.disposition "friendly")}}selected{{/if}}>Friendly</option>
+          </select>
+          <button class="btn-rm-spawn xsm danger" data-idx="{{@index}}">✕</button>
+        </div>
+        {{else}}<div class="empty-hint">No ICE configured. Add spawns below.</div>{{/each}}
+      </div>
+      <button class="btn-add-spawn" style="width:auto;margin-top:4px">+ Add ICE Spawn</button>
+    </div>
+    {{/if}}
+
+    {{#if (eq selNode.type "demon")}}
+    <div class="prop-group">
+      <label>Demon Spawns on this tile</label>
+      <div class="spawn-list">
+        {{#each selNode.data.spawns}}
+        <div class="spawn-row">
+          <span class="spawn-name">{{this.demonName}}</span>
+          <select class="spawn-disp-sel xsm" data-idx="{{@index}}">
+            <option value="enemy"    {{#if (eq this.disposition "enemy")}}selected{{/if}}>Enemy</option>
+            <option value="neutral"  {{#if (eq this.disposition "neutral")}}selected{{/if}}>Neutral</option>
+            <option value="friendly" {{#if (eq this.disposition "friendly")}}selected{{/if}}>Friendly</option>
+          </select>
+          <button class="btn-rm-spawn xsm danger" data-idx="{{@index}}">✕</button>
+        </div>
+        {{else}}<div class="empty-hint">No Demons configured.</div>{{/each}}
+      </div>
+      <button class="btn-add-spawn" style="width:auto;margin-top:4px">+ Add Demon Spawn</button>
+    </div>
+    {{/if}}
+
+    {{#if (eq selNode.type "password")}}
+    <div class="prop-group">
+      <label>DV</label>
+      <select class="prop-dv-sel">
+        {{#each dvOptions}}
+        <option value="{{this}}" {{#if (eq this ../selNode.data.dv)}}selected{{/if}}>DV {{this}}</option>
+        {{/each}}
+      </select>
+    </div>
+    {{/if}}
+
+    {{#if (eq selNode.type "file")}}
+    <div class="prop-group">
+      <label>DV (Eye-Dee)</label>
+      <select class="prop-dv-sel">
+        {{#each dvOptions}}
+        <option value="{{this}}" {{#if (eq this ../selNode.data.dv)}}selected{{/if}}>DV {{this}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <div class="prop-group">
+      <label>File Name</label>
+      <input class="prop-node-label" type="text" value="{{selNode.data.label}}" placeholder="Personnel Files…"/>
+    </div>
+    <div class="prop-group">
+      <label>Contents</label>
+      <textarea class="prop-contents" rows="3" placeholder="What does this file contain?">{{selNode.data.contents}}</textarea>
+    </div>
+    {{/if}}
+
+    {{#if (eq selNode.type "control_node")}}
+    <div class="prop-group">
+      <label>DV (Control)</label>
+      <select class="prop-dv-sel">
+        {{#each dvOptions}}
+        <option value="{{this}}" {{#if (eq this ../selNode.data.dv)}}selected{{/if}}>DV {{this}}</option>
+        {{/each}}
+      </select>
+    </div>
+    <div class="prop-group">
+      <label>System Name</label>
+      <input class="prop-node-label" type="text" value="{{selNode.data.label}}" placeholder="Door Controls…"/>
+    </div>
+    <div class="prop-group">
+      <label>Connected Defenses</label>
+      <textarea class="prop-defenses" rows="3" placeholder="Doors, cameras, turrets…">{{selNode.data.defenses}}</textarea>
+    </div>
+    {{/if}}
+
+    {{#if (eq selNode.type "system")}}
+    <div class="prop-group">
+      <label>System Name</label>
+      <input class="prop-node-label" type="text" value="{{selNode.data.label}}" placeholder="ROOT / System…"/>
+    </div>
+    {{/if}}
+
+    <div class="prop-group">
+      <label>GM Notes <small>(GM-only)</small></label>
+      <textarea class="prop-gmnotes" rows="3" placeholder="Notes visible only to GM…">{{selNode.gmNotes}}</textarea>
+    </div>
+    <div class="prop-id">ID: {{selNode.id}}</div>
+
+    {{else}}
+    <div class="props-empty">
+      <p>Click a node to edit it.</p>
+      <p>Click an <strong>empty cell</strong> to place a new node.</p>
+      <p>Click <strong>↔ / ↕</strong> between two nodes to connect or disconnect them.</p>
+      <p>Hover a node for <strong>✕</strong> (delete) and <strong>⊕</strong> (set entry).</p>
+    </div>
+    {{/if}}
+  </div>
+
+</div>

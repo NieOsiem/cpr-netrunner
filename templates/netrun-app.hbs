@@ -1,0 +1,134 @@
+{{#if error}}
+<div class="netrun-error">⚠ {{error}}</div>
+{{else}}
+<div class="netrun-layout">
+
+  <div class="netrun-toolbar">
+    <span class="net-label">// {{arch.name}} //</span>
+    <span class="net-round">RND {{runState.round}}</span>
+    {{#if isGM}}
+      <button class="btn-next-round">Next Round</button>
+      <button class="btn-reset-acts">Reset Actions</button>
+      <button class="btn-reset-run">Reset Run</button>
+      <span style="flex:1"></span>
+      <button class="btn-end-run danger">End Run</button>
+    {{/if}}
+  </div>
+
+  <div class="netrun-middle">
+    <div class="netrun-tree-panel">
+      <div class="netrun-tree-scroll">
+        {{{gridHtml}}}
+      </div>
+
+      {{#if isGM}}
+      <div class="node-action-bar {{#unless selNodeId}}hidden{{/unless}}">
+        <span class="bar-label">// NODE</span>
+        <button class="btn-reveal-node">Reveal</button>
+        <button class="btn-hide-node">Hide</button>
+        <button class="btn-beat-node">Beat</button>
+        {{#if canMoveHere}}<button class="btn-move-token-here primary-btn">→ Move Token Here</button>{{/if}}
+      </div>
+      {{!-- GM Notes panel for selected node --}}
+      {{#if selNode}}
+      <div class="gmnotes-bar">
+        <span class="bar-label">// GM NOTES</span>
+        <input class="gmnotes-input" type="text" value="{{selNode.gmNotes}}" placeholder="GM-only notes for this node…"/>
+        <button class="btn-save-gmnotes xsm">Save</button>
+      </div>
+      {{/if}}
+      {{/if}}
+
+      {{#unless isGM}}
+      <div class="node-action-bar">
+        {{#if myRunner}}
+          <button class="btn-request-move">→ Request Move to Selected Node</button>
+          <span class="bar-label" style="color:{{myRunner.color}}">
+            {{myRunner.name}} · INT {{myRunner.interfaceRank}} ·
+            {{myRunner.netActionsUsed}}/{{myRunner.netActionsTotal}} NET
+          </span>
+        {{else}}
+          <span class="bar-label">Waiting for GM to add your runner.</span>
+        {{/if}}
+      </div>
+      {{/unless}}
+    </div>
+
+    <div class="netrun-side">
+
+      <div class="side-section">
+        <div class="section-hdr">// NETRUNNERS
+          {{#if isGM}}<button class="btn-add-runner xsm">+ Runner</button>{{/if}}
+        </div>
+        {{#each runners}}
+        <div class="side-token-item {{#if (eq this.id ../selToken.id)}}tok-sel{{/if}}"
+             data-token-id="{{this.id}}" style="--rc:{{this.color}}">
+          <div class="tok-dot disp-{{this.disposition}}"></div>
+          <div class="tok-name">{{this.name}}</div>
+          <div class="tok-rez">INT{{this.interfaceRank}} {{this.netActionsUsed}}/{{this.netActionsTotal}}</div>
+          {{#if ../isGM}}<button class="btn-rm-token xsm danger" data-token-id="{{this.id}}">✕</button>{{/if}}
+        </div>
+        {{else}}<div class="empty-hint">No runners.</div>{{/each}}
+      </div>
+
+      {{#if isGM}}
+      <div class="side-section">
+        <div class="section-hdr">// ICE & DEMONS
+          <button class="btn-add-ice xsm">+ ICE</button>
+          <button class="btn-add-demon xsm">+ Demon</button>
+        </div>
+        {{#each iceTokens}}
+        <div class="side-token-item {{#if (eq this.id ../selToken.id)}}tok-sel{{/if}}"
+             data-token-id="{{this.id}}" style="--rc:#ff3030">
+          <div class="tok-dot disp-{{this.disposition}}"></div>
+          <div class="tok-name">{{this.name}}</div>
+          <div class="tok-rez {{#if this.active}}tok-active{{/if}}">{{this.currentRez}}/{{this.maxRez}}</div>
+          <button class="btn-rm-token xsm danger" data-token-id="{{this.id}}">✕</button>
+        </div>
+        {{/each}}
+        {{#each demonTokens}}
+        <div class="side-token-item {{#if (eq this.id ../selToken.id)}}tok-sel{{/if}}"
+             data-token-id="{{this.id}}" style="--rc:#cc44ff">
+          <div class="tok-dot disp-{{this.disposition}}"></div>
+          <div class="tok-name">{{this.name}}</div>
+          <div class="tok-rez {{#if this.active}}tok-active{{/if}}">{{this.currentRez}}/{{this.maxRez}}</div>
+          <button class="btn-rm-token xsm danger" data-token-id="{{this.id}}">✕</button>
+        </div>
+        {{/each}}
+        {{#unless iceTokens.length}}{{#unless demonTokens.length}}<div class="empty-hint">None deployed.</div>{{/unless}}{{/unless}}
+      </div>
+      {{/if}}
+
+      <div class="side-section">
+        <div class="section-hdr">// ROLLS</div>
+        <div class="roll-grid">
+          <button class="btn-roll" data-roll="Backdoor">Backdoor</button>
+          <button class="btn-roll" data-roll="Pathfinder">Pathfinder</button>
+          <button class="btn-roll" data-roll="Slide">Slide</button>
+          <button class="btn-roll" data-roll="Zap">Zap</button>
+          <button class="btn-roll" data-roll="Eye-Dee">Eye-Dee</button>
+          <button class="btn-roll" data-roll="Control">Control</button>
+        </div>
+      </div>
+
+      <div class="side-section log-section">
+        <div class="section-hdr">// LOG <button class="log-toggle xsm">▼</button></div>
+        <div class="run-log">
+          {{#each log}}
+          <div class="log-entry">
+            <span class="log-rnd">[R{{this.round}}]</span>
+            <span class="log-txt">{{this.text}}</span>
+          </div>
+          {{else}}<div class="empty-hint">No log entries.</div>{{/each}}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="token-card-panel {{#unless selToken}}hidden{{/unless}}">
+    {{{tokenCardHtml}}}
+  </div>
+
+</div>
+{{/if}}

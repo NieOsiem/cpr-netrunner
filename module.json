@@ -1,0 +1,17 @@
+{
+  "id": "cpr-netrunner",
+  "title": "CPR Netrunner",
+  "description": "Cyberpunk RED netrunning helper.",
+  "version": "0.2.0",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "authors": [
+    { "name": "NotEight" }
+  ],
+  "esmodules": ["scripts/main.js"],
+  "styles": ["styles/netrunner.css"],
+  "socket": true,
+  "flags": {}
+}
