@@ -24,6 +24,32 @@ import { escHtml } from "../utils.js";
 export const NODE_PX = 160;
 export const CONN_PX = 36;
 
+/**
+ * Renders a media element (video or image) based on the file extension.
+ * WebM files are rendered as autoplaying, muted, looping videos.
+ * Other formats (e.g., WebP) are rendered as images.
+ *
+ * @param {string} src - The source URL/path of the media file
+ * @param {string} alt - Alt text for images, title for videos
+ * @param {string} className - CSS class to apply to the element
+ * @param {boolean} draggable - Whether the element should be draggable
+ * @returns {string} HTML string for the media element
+ */
+export function renderMediaElement(src, alt, className = "", draggable = false) {
+  if (!src) return "";
+  
+  const isVideo = src.toLowerCase().endsWith(".webm");
+  const draggableAttr = draggable ? "" : 'draggable="false"';
+  
+  if (isVideo) {
+    return `<video class="${className}" autoplay muted loop playsinline ${draggableAttr} title="${escHtml(alt)}">
+      <source src="${src}" type="video/webm"/>
+    </video>`;
+  } else {
+    return `<img class="${className}" src="${src}" alt="${escHtml(alt)}" ${draggableAttr}/>`;
+  }
+}
+
 // ── Entry ─────────────────────────────────────────────────────────────────────
 export function renderArchGrid(arch, opts = {}) {
   const {
@@ -177,7 +203,7 @@ function _nodeCell(node, col, row, opts) {
 
   // Floor tile or ? or void background
   if (showFull && tileUrl) {
-    inner += `<img class="node-tile-bg" src="${tileUrl}" alt="${escHtml(label)}" draggable="false"/>`;
+    inner += renderMediaElement(tileUrl, label, "node-tile-bg", false);
   } else if (showQ) {
     inner += `<div class="node-tile-bg node-tile-qmark"><span>?</span></div>`;
   } else {
@@ -195,7 +221,7 @@ function _nodeCell(node, col, row, opts) {
 
   // Type icon badge (top-right)
   if (showFull && typeIconUrl && node.type !== "empty") {
-    inner += `<img class="node-type-icon" src="${typeIconUrl}" alt="${node.type}" draggable="false"/>`;
+    inner += renderMediaElement(typeIconUrl, node.type, "node-type-icon", false);
   }
 
   // Entry badge
@@ -278,7 +304,7 @@ function _token(tok, tilesRoot, isSelected = false, isTargeted = false) {
                style="--tok-color:${colorVar};--disp-color:${_dispColor(disp)}"
                title="${escHtml(tok.name)}">
     <div class="token-img-wrap">
-      <img src="${imgSrc}" alt="${escHtml(tok.name)}"/>
+      ${renderMediaElement(imgSrc, tok.name, "", false)}
       ${isTargeted ? '<div class="token-target-ring"></div>' : ''}
     </div>
     ${rezBar}

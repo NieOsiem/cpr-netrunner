@@ -246,6 +246,7 @@
 .arch-node.node-type-empty { border-color: rgba(68,85,102,0.3); }
 
 .node-tile-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.75; pointer-events: none; }
+.node-tile-bg video { object-fit: cover; }
 .node-tile-qmark { display: flex; align-items: center; justify-content: center; background: rgba(6,16,30,0.95); color: #334455; font-size: 48px; font-weight: bold; width: 100%; height: 100%; position: absolute; }
 
 /* Node type icon badge — NO black border, just drop-shadow */
@@ -283,13 +284,13 @@
 .node-tokens { position: absolute; top: 4px; bottom: 20px; left: 4px; right: 4px; display: flex; gap: 2px; flex-wrap: wrap; align-content: flex-start; justify-content: flex-start; z-index: 8; overflow: hidden; }
 .token { width: 44px; display: flex; flex-direction: column; align-items: center; gap: 0; cursor: pointer; flex-shrink: 0; }
 .token-img-wrap { position: relative; display: block; width: 40px; height: 40px; border-radius: 3px; flex-shrink: 0; overflow: visible; }
-.token img { width: 40px; height: 40px; object-fit: contain; border-radius: 3px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.9)); display: block; }
-.token-runner img { border: 2px solid var(--tok-color, #00ffcc); box-shadow: 0 0 8px var(--tok-color, #00ffcc); background: rgba(0,0,0,0.6); }
-.token-ice img { border: 2px solid rgba(255,48,48,0.6); box-shadow: 0 0 6px rgba(255,48,48,0.4); background: rgba(0,0,0,0.6); }
-.token-demon img { border: 2px solid rgba(204,68,255,0.6); box-shadow: 0 0 6px rgba(204,68,255,0.4); background: rgba(0,0,0,0.6); }
-.token-active img { box-shadow: 0 0 14px rgba(255,48,48,0.9) !important; animation: tokenFlicker 0.6s infinite; }
+.token img, .token video { width: 40px; height: 40px; object-fit: contain; border-radius: 3px; filter: drop-shadow(0 0 5px rgba(0,0,0,0.9)); display: block; }
+.token-runner img, .token-runner video { border: 2px solid var(--tok-color, #00ffcc); box-shadow: 0 0 8px var(--tok-color, #00ffcc); background: rgba(0,0,0,0.6); }
+.token-ice img, .token-ice video { border: 2px solid rgba(255,48,48,0.6); box-shadow: 0 0 6px rgba(255,48,48,0.4); background: rgba(0,0,0,0.6); }
+.token-demon img, .token-demon video { border: 2px solid rgba(204,68,255,0.6); box-shadow: 0 0 6px rgba(204,68,255,0.4); background: rgba(0,0,0,0.6); }
+.token-active img, .token-active video { box-shadow: 0 0 14px rgba(255,48,48,0.9) !important; animation: tokenFlicker 0.6s infinite; }
 .token-name { font-size: 7px; color: var(--cpr-text); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; max-width: 50px; }
-.token.token-selected img { outline: 3px solid #ffffff; box-shadow: 0 0 14px #ffffff, 0 0 6px currentColor; }
+.token.token-selected img, .token.token-selected video { outline: 3px solid #ffffff; box-shadow: 0 0 14px #ffffff, 0 0 6px currentColor; }
 .token[data-owned="true"] { cursor: pointer; }
 .token[data-owned="false"] { cursor: default; }
 .token-rez-bar { width: 100%; height: 3px; background: rgba(0,0,0,0.7); border-radius: 1px; overflow: hidden; margin-top: 1px; }
@@ -311,11 +312,13 @@
 
 /* Token scaling for crowded tiles */
 .node-tokens:has(.token:nth-child(4)) .token { width: 34px; }
-.node-tokens:has(.token:nth-child(4)) .token img { width: 30px; height: 30px; }
+.node-tokens:has(.token:nth-child(4)) .token img,
+.node-tokens:has(.token:nth-child(4)) .token video { width: 30px; height: 30px; }
 .node-tokens:has(.token:nth-child(4)) .token-img-wrap { width: 30px; height: 30px; }
 .node-tokens:has(.token:nth-child(4)) .token-name { display: none; }
 .node-tokens:has(.token:nth-child(7)) .token { width: 26px; }
-.node-tokens:has(.token:nth-child(7)) .token img { width: 22px; height: 22px; }
+.node-tokens:has(.token:nth-child(7)) .token img,
+.node-tokens:has(.token:nth-child(7)) .token video { width: 22px; height: 22px; }
 .node-tokens:has(.token:nth-child(7)) .token-img-wrap { width: 22px; height: 22px; }
 
 /* Targeting Ring */
