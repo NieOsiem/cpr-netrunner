@@ -13,6 +13,8 @@
   --cpr-btn-bg: rgba(10,20,30,0.6);
   --cpr-btn-bg-hover: rgba(0,255,204,0.08);
 }
+ 
+img { border: none; }
 
 /* ── Window Chrome ─────────────────────────────────────────────────────────── */
 .cpr-netrunner.window-app {
