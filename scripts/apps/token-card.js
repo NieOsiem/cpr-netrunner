@@ -41,7 +41,7 @@ function moveRow() {
 }
 
 // ── Runner card ───────────────────────────────────────────────────────────────
-function renderRunnerCard(tok, isGM) {
+function renderRunnerCard(tok, isGM, canMove) {
   const interfaceRank = tok.interfaceRank ?? 4;
   // Show Coding whenever it's explicitly stored on the token (even if equal to Interface),
   // because Coding is a distinct homebrew ability that players always want to see.
@@ -65,7 +65,7 @@ function renderRunnerCard(tok, isGM) {
                 (tok.currentHp ?? tok.maxHp ?? 40) < (tok.maxHp ?? 40) * 0.4 ? "stat-danger" : "")}
       ${statRow("Disposition", (tok.disposition ?? "friendly").toUpperCase())}
     </div>
-    ${isGM ? moveRow() : ""}
+    ${(isGM || canMove) ? moveRow() : ""}
   </div>`;
 }
 
@@ -138,10 +138,16 @@ function renderDemonCard(tok, isGM) {
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
-export function renderTokenCard(tok, isGM) {
+
+/**
+ * @param {object}  tok      - Token data object
+ * @param {boolean} isGM     - Whether the current user is GM
+ * @param {boolean} canMove  - Whether to show move arrows (true for a player's own runner)
+ */
+export function renderTokenCard(tok, isGM, canMove = false) {
   if (!tok) return "";
   switch (tok.type) {
-    case "runner":    return renderRunnerCard(tok, isGM);
+    case "runner":    return renderRunnerCard(tok, isGM, canMove);
     case "black_ice": return renderIceCard(tok, isGM);
     case "demon":     return renderDemonCard(tok, isGM);
     default:          return "";

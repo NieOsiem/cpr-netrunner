@@ -5,7 +5,7 @@
  *
  * Player restrictions:
  *   - Can only select/click tokens where tok.userId === game.userId
- *   - Can request move only for their linked runner
+ *   - Move arrows on token card send a socketRequestMove (GM validates)
  *   - Targeting (T key) works on all visible tokens
  */
 
@@ -160,7 +160,12 @@ export class NetrunApp extends Application {
       targetedTokenIds: this._targetedTokenIds,
     });
 
-    const tokenCardHtml = selToken ? renderTokenCard(selToken, userIsGM) : "";
+    // Players see move arrows on their own runner token card
+    const canMove = !userIsGM && !!selToken
+      && selToken.type === "runner"
+      && selToken.userId === game.userId;
+
+    const tokenCardHtml = selToken ? renderTokenCard(selToken, userIsGM, canMove) : "";
     const canMoveHere = userIsGM && selToken && this._selNodeId
       && this._selNodeId !== selToken.currentNodeId;
 
@@ -218,7 +223,7 @@ export class NetrunApp extends Application {
       if (this._hoveredTokenId === ev.currentTarget.dataset.tokenId) this._hoveredTokenId = null;
     });
 
-    // Token Card actions
+    // Token Card: stat rolls
     html.find(".token-card-panel").on("click", ".stat-rollable", async ev => {
       const formula  = ev.currentTarget.dataset.roll;
       const label    = ev.currentTarget.dataset.label ?? "Roll";
@@ -234,11 +239,19 @@ export class NetrunApp extends Application {
       }
     });
 
-    html.find(".token-card-panel").on("click", ".btn-move-dir", ev => this._gmMoveTokenDir(ev.currentTarget.dataset.dir));
-    html.find(".token-card-panel").on("click", ".btn-token-active", () => this._gmToggleTokenActive());
-    html.find(".token-card-panel").on("click", ".btn-edit-token-rez", () => this._gmEditTokenRez());
+    // Token Card: move arrows — GM moves directly, players send a request
+    html.find(".token-card-panel").on("click", ".btn-move-dir", ev => {
+      if (userIsGM) {
+        this._gmMoveTokenDir(ev.currentTarget.dataset.dir);
+      } else {
+        this._playerMoveDir(ev.currentTarget.dataset.dir);
+      }
+    });
+
+    html.find(".token-card-panel").on("click", ".btn-token-active",     () => this._gmToggleTokenActive());
+    html.find(".token-card-panel").on("click", ".btn-edit-token-rez",   () => this._gmEditTokenRez());
     html.find(".token-card-panel").on("click", ".btn-token-reset-home", () => this._gmResetTokenHome());
-    html.find(".token-card-panel").on("click", ".btn-edit-token-meta", () => this._editTokenMeta());
+    html.find(".token-card-panel").on("click", ".btn-edit-token-meta",  () => this._editTokenMeta());
 
     html.find(".btn-reveal-node").click(() => this._gmRevealNode(true));
     html.find(".btn-hide-node").click(() => this._gmRevealNode(false));
@@ -258,7 +271,26 @@ export class NetrunApp extends Application {
     html.find(".btn-reset-acts").click(() => this._gmResetActions());
     html.find(".btn-reset-run").click(() => this._gmResetRun());
     html.find(".btn-end-run").click(() => this._gmEndRun());
+
+    // Interface-rank rolls (Backdoor, Pathfinder, etc.)
     html.find(".btn-roll").click(ev => this._rollAction(ev.currentTarget.dataset.roll));
+
+    // Flat damage rolls (Zap Dmg, etc.) — formula, label, damageType stored in data attrs
+    html.find(".btn-dmg-roll").click(async ev => {
+      const formula = ev.currentTarget.dataset.formula;
+      const label   = ev.currentTarget.dataset.label      ?? "Damage";
+      const dmgType = ev.currentTarget.dataset.damageType ?? null;
+      if (!formula) return;
+      const result = await rollToChat(formula, label, { isDamage: !!dmgType, damageType: dmgType });
+      if (result?.isDamage && this._targetedTokenIds.size && userIsGM) {
+        const tokenInfos = [...this._targetedTokenIds]
+          .map(id => findTokenById(this.runState, id))
+          .filter(Boolean)
+          .map(t => ({ id: t.id, name: t.name, type: t.type }));
+        if (tokenInfos.length) await sendDamageCard(result.total, label, dmgType, tokenInfos);
+      }
+    });
+
     html.find(".log-toggle").click(() => html.find(".run-log").toggleClass("collapsed"));
 
     if (!userIsGM) html.find(".btn-request-move").click(() => this._playerRequestMove());
@@ -492,6 +524,25 @@ export class NetrunApp extends Application {
     await this._saveAndBroadcast();
   }
 
+  /** Player clicks a move arrow on their own token card — sends a socket request to GM. */
+  async _playerMoveDir(dir) {
+    const arch = this._getArch();
+    if (!arch) return;
+    const myRunner = findRunnerByUser(this.runState, game.userId);
+    if (!myRunner?.currentNodeId) {
+      ui.notifications.warn("Your runner is not on the map.");
+      return;
+    }
+    const opts     = this._getAdjacentMoveOptions(arch, myRunner.currentNodeId);
+    const targetId = opts?.[dir];
+    if (!targetId) {
+      ui.notifications.warn("No connected node in that direction.");
+      return;
+    }
+    socketRequestMove(myRunner.id, targetId);
+    ui.notifications.info("Move request sent to GM.");
+  }
+
   async _gmToggleTokenActive() {
     const tok = findTokenById(this.runState, this._selTokenId);
     if (!tok) return;
@@ -651,11 +702,27 @@ export class NetrunApp extends Application {
  *
  * actorData shape: { name, iconPath, color, actorId, interfaceRank, codingRank, hpMax, hpCurrent }
  *
- * GM path: creates the run if needed, auto-adds actor's runner if actorData provided.
+ * If actorData is not provided, it is auto-resolved from the targetUserId's linked character.
+ * This makes macros like CprNetrunner.openNetrun(archId, userId) work without needing to
+ * construct actorData manually.
+ *
+ * GM path: creates the run if needed, auto-adds actor's runner if actorData resolved.
  * Player path: opens the window with current state; sends socketRequestJoin so the
  *   GM's handler can add and persist the runner, then broadcasts back to all clients.
  */
 export async function openNetrun(archId, targetUserId = null, actorData = null) {
+  // Auto-resolve actorData from the target (or current) user's linked character.
+  // Covers: macros that pass only userId, scene-control re-open, etc.
+  if (!actorData) {
+    const resolveUserId = targetUserId ?? (isGM() ? null : game.userId);
+    if (resolveUserId) {
+      const linkedActor = game.users?.get(resolveUserId)?.character ?? null;
+      if (linkedActor) {
+        actorData = { ...extractActorStats(linkedActor), actorId: linkedActor.id };
+      }
+    }
+  }
+
   const arch = loadArchitecture(archId);
   if (!arch) { ui.notifications.error("CPR Netrunner | Architecture not found."); return; }
 
@@ -672,7 +739,7 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
         await saveRunState(runState);
       }
 
-      // Auto-add the selected actor's runner when GM clicks a tile
+      // Auto-add the selected actor's runner when GM opens with actorData
       if (actorData?.actorId) {
         const alreadyIn = runState.tokens?.some(
           t => t.type === "runner" && t.actorId === actorData.actorId
