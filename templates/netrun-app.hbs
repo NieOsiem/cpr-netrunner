@@ -4,13 +4,14 @@
 <div class="netrun-layout">
 
   <div class="netrun-toolbar">
-    <span class="net-label">{{arch.name}}</span>
-    <span class="net-round">RND {{runState.round}}</span>
+    <span class="net-arch-name">// {{arch.name}} //</span>
+    <span class="net-separator">|</span>
+    <span class="net-round">Round {{runState.round}}</span>
+    <span style="flex:1"></span>
     {{#if isGM}}
       <button class="btn-next-round">Next Round</button>
       <button class="btn-reset-acts">Reset Actions</button>
       <button class="btn-reset-run">Reset Run</button>
-      <span style="flex:1"></span>
       <button class="btn-end-run danger">End Run</button>
     {{/if}}
   </div>
