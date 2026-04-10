@@ -4,7 +4,7 @@
  *
  * Registers:
  *   - World settings (tile path, arch index, active run, per-arch data)
- *   - Hooks (init, ready, tile double-click)
+ *   - Hooks (init, ready, tile double-click, updateActor HP sync)
  *   - Socket handlers
  *   - Global API: window.CprNetrunner
  */
@@ -16,6 +16,7 @@ import { initSocket, onSocket, socketBroadcastState } from "./socket.js";
 import { moveToken, findTokenById, findRunnerByUser, revealNode, addLogEntry, initNodeStates, initializeSpawns, resetRun, beatNode, applyDamageToToken } from "./data/run-state.js";
 import { openNetrun, getNetrunApp, NetrunApp } from "./apps/netrun-app.js";
 import { ArchEditorApp } from "./apps/arch-editor.js";
+import { extractActorStats, actorFromUser, actorFromSelectedToken } from "./data/actor-bridge.js";
 import { MODULE_ID } from "./utils.js";
 
 // ── Settings Registration ─────────────────────────────────────────────────────
@@ -133,21 +134,55 @@ Hooks.once("ready", async () => {
   initSocket();
   _registerSocketHandlers();
 
-  // Tile hook — tiles flagged with cpr-netrunner.archId open the netrun
+  // ── Tile hook ──────────────────────────────────────────────────────────────
+  // Tiles flagged with cpr-netrunner.archId open the netrun window.
+  // Player: opens with their linked character's stats.
+  // GM:     opens with the currently selected canvas token's actor (if any).
   if (typeof Tile !== "undefined" && typeof Tile.prototype._onClickLeft2 === "function") {
     const _orig = Tile.prototype._onClickLeft2;
     Tile.prototype._onClickLeft2 = function(event) {
       const archId = this.document.getFlag(MODULE_ID, "archId");
       if (archId) {
         event.stopPropagation();
-        // Use MAT-compatible pattern: pull userId from available context
-        const userId = game.userId;
-        openNetrun(archId, game.user.isGM ? null : userId);
+        if (game.user.isGM) {
+          const actor     = actorFromSelectedToken();
+          const actorData = actor ? { ...extractActorStats(actor), actorId: actor.id } : null;
+          openNetrun(archId, null, actorData);
+        } else {
+          const actor     = actorFromUser(game.userId);
+          const actorData = actor ? { ...extractActorStats(actor), actorId: actor.id } : null;
+          openNetrun(archId, game.userId, actorData);
+        }
         return;
       }
       return _orig.call(this, event);
     };
   }
+
+  // ── Live HP sync from actor ────────────────────────────────────────────────
+  // Runs on every client. GM saves + broadcasts; non-GMs update display only.
+  // This handles HP changes from combat tracker, damage macros, etc.
+  Hooks.on("updateActor", async (actor, changes) => {
+    if (!foundry.utils.hasProperty(changes, "system.derivedStats.hp.value")) return;
+    const app = getNetrunApp();
+    if (!app?.runState) return;
+
+    const newHp  = foundry.utils.getProperty(changes, "system.derivedStats.hp.value");
+    let changed  = false;
+
+    for (const tok of app.runState.tokens ?? []) {
+      if (tok.type !== "runner" || tok.actorId !== actor.id) continue;
+      const clamped = Math.max(0, Math.min(tok.maxHp ?? 40, newHp));
+      if (tok.currentHp !== clamped) { tok.currentHp = clamped; changed = true; }
+    }
+    if (!changed) return;
+
+    if (game.user.isGM) {
+      await saveRunState(app.runState);
+      socketBroadcastState(app.archId, app.runState);
+    }
+    app.render(false);
+  });
 
   // Load custom Black ICE from setting TODO - add demons
   loadCustomBlackIce();
@@ -349,21 +384,21 @@ globalThis.CprNetrunner = {
     return openNetrun(archId, targetUserId, actorData);
   },
 
-  // Open a netrun by tile flag — call from MAT on the tile
+  // Open a netrun by tile flag — call from MAT on the tile.
+  // Uses actor-bridge to pull a clean stats snapshot from the actor.
   // In MAT "Run Code": CprNetrunner.openNetrunFromTile(tile)
   openNetrunFromTile(tileDoc, actorArg = null) {
     const archId = tileDoc?.document?.getFlag?.(MODULE_ID, "archId")
       ?? tileDoc?.getFlag?.(MODULE_ID, "archId");
     if (!archId) { ui.notifications.warn("CPR Netrunner | This tile has no architecture linked."); return; }
+
     // MAT Run Code injects `actor` into scope; actorArg is a fallback
     let a = actorArg;
     try { if (!a) a = actor; } catch(_) {}
-    const _uid = game.users.find(u => u.character?.id === a?.id)?.id ?? game.userId;
-    const actorData = a ? {
-      name:  a.name,
-      img:   a.prototypeToken?.texture?.src ?? a.img ?? null,
-      color: game.users.find(u => u.character?.id === a.id)?.color?.css ?? "#00ffcc",
-    } : null;
+
+    const linkedUser = a ? game.users.find(u => u.character?.id === a.id) : null;
+    const _uid       = linkedUser?.id ?? game.userId;
+    const actorData  = a ? { ...extractActorStats(a), actorId: a.id } : null;
     return openNetrun(archId, _uid, actorData);
   },
 

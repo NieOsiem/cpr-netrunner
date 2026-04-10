@@ -11,7 +11,8 @@
  *   id, type: "runner"|"black_ice"|"demon",
  *   name,
  *   // runner-specific
- *   userId, isNPC, interfaceRank, netActionsTotal, netActionsUsed,
+ *   actorId,         // Foundry Actor id — null for manually-created runners
+ *   userId, isNPC, interfaceRank, codingRank, netActionsTotal, netActionsUsed,
  *   color, disposition,
  *   // ice/demon-specific
  *   iceName, demonName,
@@ -41,16 +42,18 @@ export function netActionsFromRank(rank) {
 // ── Token factories ───────────────────────────────────────────────────────────
 
 export function createRunnerToken(opts = {}) {
-  const rank = opts.interfaceRank ?? 4;
+  const rank  = opts.interfaceRank ?? 4;
   const maxHp = opts.maxHp ?? (opts.isNPC ? 20 : 40);
   return {
     id:              generateId(),
     type:            "runner",
     name:            opts.name          ?? "Runner",
-    iconPath:        opts.iconPath      ?? null,   // custom token icon path
+    iconPath:        opts.iconPath      ?? null,
+    actorId:         opts.actorId       ?? null,   // Foundry Actor id (null = manual)
     userId:          opts.userId        ?? null,
     isNPC:           opts.isNPC         ?? false,
     interfaceRank:   rank,
+    codingRank:      opts.codingRank    ?? null,   // null = same as interfaceRank
     netActionsTotal: netActionsFromRank(rank),
     netActionsUsed:  0,
     maxHp,
@@ -275,6 +278,47 @@ export function beatNode(runState, nodeId) {
   for (const tok of runState.tokens ?? []) {
     if (tok.homeNodeId === nodeId) tok.active = false;
   }
+}
+
+// ── Actor sync ────────────────────────────────────────────────────────────────
+
+/**
+ * Patch a runner token's stats from a fresh actor stats snapshot.
+ * Only updates fields that actually changed to avoid spurious re-renders.
+ * Returns true if anything was modified.
+ *
+ * @param {object} runState
+ * @param {string} tokenId
+ * @param {{ interfaceRank, codingRank, hpMax, hpCurrent, iconPath, name, color }} actorStats
+ * @returns {boolean}
+ */
+export function syncRunnerFromActor(runState, tokenId, actorStats) {
+  const tok = findTokenById(runState, tokenId);
+  if (!tok || tok.type !== "runner") return false;
+
+  let changed = false;
+
+  const patch = {
+    name:          actorStats.name,
+    iconPath:      actorStats.iconPath,
+    color:         actorStats.color,
+    interfaceRank: actorStats.interfaceRank,
+    codingRank:    actorStats.codingRank,
+    maxHp:         actorStats.hpMax,
+    currentHp:     actorStats.hpCurrent,
+  };
+
+  for (const [key, val] of Object.entries(patch)) {
+    if (tok[key] !== val) { tok[key] = val; changed = true; }
+  }
+
+  // Keep netActionsTotal in sync with interfaceRank
+  if (changed) {
+    const newTotal = netActionsFromRank(tok.interfaceRank);
+    if (tok.netActionsTotal !== newTotal) tok.netActionsTotal = newTotal;
+  }
+
+  return changed;
 }
 
 // ── Visibility helpers ────────────────────────────────────────────────────────

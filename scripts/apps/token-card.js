@@ -42,18 +42,24 @@ function moveRow() {
 
 // ── Runner card ───────────────────────────────────────────────────────────────
 function renderRunnerCard(tok, isGM) {
-  const rank = tok.interfaceRank ?? 4;
+  const interfaceRank = tok.interfaceRank ?? 4;
+  // codingRank: show only when it's explicitly set and differs from interfaceRank
+  const codingRank    = tok.codingRank ?? null;
+  const showCoding    = codingRank !== null && codingRank !== interfaceRank;
+
   return `<div class="tcard tcard-runner" style="--tc:${tok.color}">
     <div class="tcard-header">
       <div class="tcard-dot" style="background:${tok.color}"></div>
       <div class="tcard-name">${tok.name}</div>
       ${tok.isNPC ? '<span class="tcard-badge">NPC</span>' : ''}
+      ${tok.actorId ? '<span class="tcard-badge" title="Linked to actor">⚙</span>' : ''}
       ${isGM ? `<button class="tcard-btn btn-edit-token-rez">REZ</button>
                 <button class="tcard-btn btn-token-reset-home">⌂</button>
                 <button class="tcard-btn btn-edit-token-meta" title="Edit name/icon">✎</button>` : ""}
     </div>
     <div class="tcard-body">
-      ${statRow("Interface", rank, `1d10 + ${rank}`, "stat-highlight")}
+      ${statRow("Interface", interfaceRank, `1d10 + ${interfaceRank}`, "stat-highlight")}
+      ${showCoding ? statRow("Coding", codingRank, `1d10 + ${codingRank}`) : ""}
       ${statRow("NET Actions", `${tok.netActionsUsed}/${tok.netActionsTotal}`)}
       ${statRow("HP", `${tok.currentHp ?? tok.maxHp ?? 40} / ${tok.maxHp ?? 40}`, null,
                 (tok.currentHp ?? tok.maxHp ?? 40) < (tok.maxHp ?? 40) * 0.4 ? "stat-danger" : "")}
