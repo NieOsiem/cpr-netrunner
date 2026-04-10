@@ -153,7 +153,6 @@ Hooks.once("ready", async () => {
   }
 
   // ── Live HP sync from actor ────────────────────────────────────────────────
-  // Runs on every client. GM saves + broadcasts; non-GMs update display only.
   Hooks.on("updateActor", async (actor, changes) => {
     if (!foundry.utils.hasProperty(changes, "system.derivedStats.hp.value")) return;
     const app = getNetrunApp();
@@ -190,29 +189,6 @@ Hooks.once("ready", async () => {
   });
 
   _registerDamageButtonHandler();
-
-  // TODO - do this in a better way without hooking into scene controls
-  Hooks.on("getSceneControlButtons", (controls) => {
-    const bar = controls.find(c => c.name === "token");
-    if (!bar) return;
-    bar.tools.push({
-      name:  "netrun",
-      title: "CPR Netrunner — Open Run",
-      icon:  "fa-solid fa-network-wired",
-      button: true,
-      onClick: () => {
-        const app = getNetrunApp();
-        if (app) { app.bringToTop(); return; }
-        try {
-          const raw = game.settings.get(MODULE_ID, "netrun_active_run");
-          const rs  = raw ? JSON.parse(raw) : null;
-          if (rs?.archId && rs?.isActive) { openNetrun(rs.archId); return; }
-        } catch(_) {}
-        ui.notifications.warn("CPR Netrunner | No active run.");
-      },
-    });
-  });
-
   console.log(`${MODULE_ID} | Ready. API: CprNetrunner.openEditor() / CprNetrunner.openNetrun(archId)`);
 });
 
@@ -303,9 +279,6 @@ function _registerSocketHandlers() {
     }
   });
 
-  // Player requests to join the run as a runner.
-  // GM is the only authority that can persist state, so the runner is added here,
-  // saved, and then broadcast to all clients (including the requesting player).
   onSocket("requestJoin", async (data) => {
     if (!game.user.isGM) return;
     if (game.user !== game.users.activeGM) return;
@@ -314,11 +287,9 @@ function _registerSocketHandlers() {
     const runState = loadRunState();
     if (!runState) return;
 
-    // Idempotent: don't add a second runner for the same user
     const existing = findRunnerByUser(runState, userId);
     if (existing) return;
 
-    // Place the runner on the entry node of the current architecture
     const arch        = loadArchitecture(runState.archId);
     const entryNodeId = arch?.entryNodeId ?? null;
 
