@@ -43,9 +43,9 @@ function moveRow() {
 // ── Runner card ───────────────────────────────────────────────────────────────
 function renderRunnerCard(tok, isGM) {
   const interfaceRank = tok.interfaceRank ?? 4;
-  // codingRank: show only when it's explicitly set and differs from interfaceRank
-  const codingRank    = tok.codingRank ?? null;
-  const showCoding    = codingRank !== null && codingRank !== interfaceRank;
+  // Show Coding whenever it's explicitly stored on the token (even if equal to Interface),
+  // because Coding is a distinct homebrew ability that players always want to see.
+  const codingRank = tok.codingRank ?? null;
 
   return `<div class="tcard tcard-runner" style="--tc:${tok.color}">
     <div class="tcard-header">
@@ -59,7 +59,7 @@ function renderRunnerCard(tok, isGM) {
     </div>
     <div class="tcard-body">
       ${statRow("Interface", interfaceRank, `1d10 + ${interfaceRank}`, "stat-highlight")}
-      ${showCoding ? statRow("Coding", codingRank, `1d10 + ${codingRank}`) : ""}
+      ${codingRank !== null ? statRow("Coding", codingRank, `1d10 + ${codingRank}`) : ""}
       ${statRow("NET Actions", `${tok.netActionsUsed}/${tok.netActionsTotal}`)}
       ${statRow("HP", `${tok.currentHp ?? tok.maxHp ?? 40} / ${tok.maxHp ?? 40}`, null,
                 (tok.currentHp ?? tok.maxHp ?? 40) < (tok.maxHp ?? 40) * 0.4 ? "stat-danger" : "")}

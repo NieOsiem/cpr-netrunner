@@ -22,7 +22,10 @@ import { extractActorStats, writeHpToActor } from "../data/actor-bridge.js";
 import { renderArchGrid } from "./grid-renderer.js";
 import { PanZoom } from "./pan-zoom.js";
 import { renderTokenCard } from "./token-card.js";
-import { socketBroadcastState, socketOpenNetrun, socketCloseNetrun, socketRequestMove } from "../socket.js";
+import {
+  socketBroadcastState, socketOpenNetrun, socketCloseNetrun,
+  socketRequestMove, socketRequestJoin,
+} from "../socket.js";
 import { getTilesRoot, isGM, rollToChat, sendDamageCard, MODULE_ID, escHtml } from "../utils.js";
 
 let _instance = null;
@@ -93,7 +96,7 @@ export class NetrunApp extends Application {
     this._hoveredTokenId   = null;
     this._boundKeyHandler  = this._onKeyDown.bind(this);
     this._pz          = new PanZoom({ minZoom: 0.2, maxZoom: 4.0, defaultCursor: "grab" });
-    this._pzReady     = false;  // prevents re-centering on every re-render
+    this._pzReady     = false;
 
     _instance = this;
   }
@@ -150,10 +153,10 @@ export class NetrunApp extends Application {
     const selNode  = this._selNodeId  ? (arch.nodes[this._selNodeId] ?? null) : null;
 
     const gridHtml = renderArchGrid(arch, {
-      runState:        this.runState,
-      tilesRoot, isGM: userIsGM,
-      selectedNodeId:  this._selNodeId,
-      selectedTokenId: this._selTokenId,
+      runState:         this.runState,
+      tilesRoot, isGM:  userIsGM,
+      selectedNodeId:   this._selNodeId,
+      selectedTokenId:  this._selTokenId,
       targetedTokenIds: this._targetedTokenIds,
     });
 
@@ -179,7 +182,6 @@ export class NetrunApp extends Application {
     const treeScroll = html.find(".netrun-tree-scroll")[0];
     const gridEl     = html.find(".arch-grid")[0];
 
-    // Pan/zoom — attach controller; center on entry node on first render only
     if (treeScroll && gridEl) {
       this._pz.attach(treeScroll, gridEl);
       if (!this._pzReady) {
@@ -189,7 +191,7 @@ export class NetrunApp extends Application {
       }
     }
 
-    // Node & Token Selection (Left click)
+    // Node selection
     html.find(".netrun-tree-scroll").on("click", ".arch-node", ev => {
       if ($(ev.target).closest("[data-action], .token").length) return;
       const nodeId = ev.currentTarget.dataset.nodeId;
@@ -197,9 +199,14 @@ export class NetrunApp extends Application {
       this.render(false);
     });
 
+    // Token selection — players may only select their own runner
     html.on("click", ".token[data-token-id], .side-token-item", ev => {
       ev.stopPropagation();
       const tokenId = ev.currentTarget.dataset.tokenId;
+      if (!userIsGM) {
+        const tok = findTokenById(this.runState, tokenId);
+        if (!tok || tok.userId !== game.userId) return;
+      }
       this._selTokenId = (this._selTokenId === tokenId) ? null : tokenId;
       this.render(false);
     });
@@ -211,7 +218,7 @@ export class NetrunApp extends Application {
       if (this._hoveredTokenId === ev.currentTarget.dataset.tokenId) this._hoveredTokenId = null;
     });
 
-    // Token Card & UI Actions (Delegated)
+    // Token Card actions
     html.find(".token-card-panel").on("click", ".stat-rollable", async ev => {
       const formula  = ev.currentTarget.dataset.roll;
       const label    = ev.currentTarget.dataset.label ?? "Roll";
@@ -253,11 +260,10 @@ export class NetrunApp extends Application {
     html.find(".btn-end-run").click(() => this._gmEndRun());
     html.find(".btn-roll").click(ev => this._rollAction(ev.currentTarget.dataset.roll));
     html.find(".log-toggle").click(() => html.find(".run-log").toggleClass("collapsed"));
-    
+
     if (!userIsGM) html.find(".btn-request-move").click(() => this._playerRequestMove());
     this._startKeyListener();
 
-    // Mark targeted in side list
     html.find(".side-token-item").each((_, el) => {
       if (el.dataset.tokenId && this._targetedTokenIds.has(el.dataset.tokenId))
         el.classList.add("tok-targeted");
@@ -322,8 +328,6 @@ export class NetrunApp extends Application {
     const nodeSel     = _fmNodeSelect(arch, defaultNode);
 
     if (type === "runner") {
-      // Actor picker: selecting and clicking "Fill ↓" populates the manual fields.
-      // On submit, actorId is stored regardless — actor fields take priority if one was chosen.
       new Dialog({
         title: "Add Netrunner",
         content: `<form style="padding:8px">
@@ -350,23 +354,22 @@ export class NetrunApp extends Application {
             const nodeId  = h.find("[name=nodeId]").val() || null;
             const isNPC   = h.find("[name=npc]").val() === "true";
 
-            // Actor stats take priority; fall back to manually entered fields
             const linkedUserId = stats
               ? (game.users.find(u => u.character?.id === actorId)?.id ?? null)
               : (h.find("[name=userId]").val() || null);
 
             const tok = createRunnerToken({
               actorId:       actorId,
-              name:          (stats?.name          ?? h.find( "[name=name] ").val().trim()) ||  "Runner ",
-              iconPath:      (stats?.iconPath      ?? h.find( "[name=iconPath] ").val().trim()) || null,
-              interfaceRank: (stats?.interfaceRank ?? parseInt(h.find( "[name=rank] ").val())) || 4,
+              name:          (stats?.name          ?? h.find("[name=name]").val().trim()) || "Runner",
+              iconPath:      (stats?.iconPath      ?? h.find("[name=iconPath]").val().trim()) || null,
+              interfaceRank: (stats?.interfaceRank ?? parseInt(h.find("[name=rank]").val())) || 4,
               codingRank:    stats?.codingRank    ?? null,
-              color:         (stats?.color         ?? h.find( "[name=color] ").val()) ||  "#00ffcc ",
+              color:         (stats?.color         ?? h.find("[name=color]").val()) || "#00ffcc",
               isNPC,
               userId:        linkedUserId,
               currentNodeId: nodeId, homeNodeId: nodeId,
-              disposition:   h.find( "[name=disposition] ").val() ||  "friendly ",
-              maxHp:         stats?.hpMax         ?? (isNPC ? parseInt(h.find( "[name=maxHp] ").val()) || 20 : 40),
+              disposition:   h.find("[name=disposition]").val() || "friendly",
+              maxHp:         stats?.hpMax         ?? (isNPC ? parseInt(h.find("[name=maxHp]").val()) || 20 : 40),
               currentHp:     stats?.hpCurrent     ?? null,
             });
             addToken(this.runState, tok);
@@ -375,7 +378,6 @@ export class NetrunApp extends Application {
           }},
           cancel: { label:"Cancel" },
         },
-        // "Fill ↓" button populates manual fields from the selected actor
         render: h => {
           h.find(".btn-fill-actor").on("click", () => {
             const actorId = h.find("[name=actorId]").val();
@@ -387,7 +389,6 @@ export class NetrunApp extends Application {
             h.find("[name=rank]").val(stats.interfaceRank);
             h.find("[name=maxHp]").val(stats.hpMax);
             h.find("[name=color]").val(stats.color);
-            // Auto-select the linked user, if any
             const linkedUserId = game.users.find(u => u.character?.id === actor.id)?.id ?? "";
             h.find("[name=userId]").val(linkedUserId);
           });
@@ -491,19 +492,6 @@ export class NetrunApp extends Application {
     await this._saveAndBroadcast();
   }
 
-  async _playerMoveDir(dir) {
-    const arch = this._getArch();
-    if (!this._selTokenId || !arch) return;
-    const tok = findTokenById(this.runState, this._selTokenId);
-    if (!tok || tok.userId !== game.userId) return;
-    const opts     = this._getAdjacentMoveOptions(arch, tok.currentNodeId);
-    const targetId = opts?.[dir];
-    if (!targetId) return;
-    // Players send a move request; GM validates
-    socketRequestMove(tok.id, targetId);
-    ui.notifications.info("Move request sent.");
-  }
-
   async _gmToggleTokenActive() {
     const tok = findTokenById(this.runState, this._selTokenId);
     if (!tok) return;
@@ -597,7 +585,6 @@ export class NetrunApp extends Application {
     const arch = this._getArch();
     if (!arch) return;
     resetRun(this.runState, arch);
-    // Re-reveal entry node
     if (arch.entryNodeId) revealNode(this.runState, arch.entryNodeId);
     this._selTokenId  = null;
     this._selNodeId   = null;
@@ -662,11 +649,11 @@ export class NetrunApp extends Application {
 /**
  * Open or focus the netrun window for a given architecture.
  *
- * actorData shape (all optional, pulled from actor-bridge.extractActorStats):
- *   { name, iconPath, color, actorId, interfaceRank, codingRank, hpMax, hpCurrent }
+ * actorData shape: { name, iconPath, color, actorId, interfaceRank, codingRank, hpMax, hpCurrent }
  *
- * When actorData is provided a runner token is auto-created for the actor
- * (unless one already exists for that actorId/userId in the run).
+ * GM path: creates the run if needed, auto-adds actor's runner if actorData provided.
+ * Player path: opens the window with current state; sends socketRequestJoin so the
+ *   GM's handler can add and persist the runner, then broadcasts back to all clients.
  */
 export async function openNetrun(archId, targetUserId = null, actorData = null) {
   const arch = loadArchitecture(archId);
@@ -677,7 +664,6 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
     let runState = loadRunState();
 
     if (isGM()) {
-      // Create a fresh run state if none exists or it's for a different arch
       if (!runState || runState.archId !== archId) {
         runState = createRunState(archId);
         initNodeStates(runState, arch);
@@ -686,7 +672,7 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
         await saveRunState(runState);
       }
 
-      // If GM double-clicked a tile with a selected token, auto-add that actor's runner
+      // Auto-add the selected actor's runner when GM clicks a tile
       if (actorData?.actorId) {
         const alreadyIn = runState.tokens?.some(
           t => t.type === "runner" && t.actorId === actorData.actorId
@@ -712,26 +698,13 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
       }
 
     } else {
-      // Non-GM: auto-add runner if we have actor data and no runner yet for this user
+      // Non-GM: open the window with current state, then request to join via GM.
+      // The GM's requestJoin handler adds, saves, and broadcasts — avoiding the
+      // problem of players trying to save world state directly.
       if (runState && actorData) {
         const existing = findRunnerByUser(runState, game.userId);
         if (!existing) {
-          const tok = createRunnerToken({
-            actorId:       actorData.actorId       ?? null,
-            name:          actorData.name,
-            iconPath:      actorData.iconPath       ?? null,
-            userId:        game.userId,
-            color:         actorData.color          ?? "#00ffcc",
-            disposition:   "friendly",
-            interfaceRank: actorData.interfaceRank  ?? 4,
-            codingRank:    actorData.codingRank     ?? null,
-            maxHp:         actorData.hpMax          ?? 40,
-            currentHp:     actorData.hpCurrent      ?? actorData.hpMax ?? 40,
-          });
-          addToken(runState, tok);
-          addLogEntry(runState, `${tok.name} jacked in.`);
-          // Players cannot save — broadcast to GM who will persist it
-          socketBroadcastState(archId, runState);
+          socketRequestJoin({ ...actorData });
         }
       }
     }

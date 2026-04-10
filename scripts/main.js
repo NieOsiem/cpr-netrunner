@@ -13,7 +13,11 @@ import { loadAllArchitectures, loadArchitecture, saveArchitecture } from "./data
 import { loadCustomBlackIce } from "./data/node-defs.js";
 import { loadRunState, saveRunState } from "./data/run-state.js";
 import { initSocket, onSocket, socketBroadcastState } from "./socket.js";
-import { moveToken, findTokenById, findRunnerByUser, revealNode, addLogEntry, initNodeStates, initializeSpawns, resetRun, beatNode, applyDamageToToken } from "./data/run-state.js";
+import {
+  moveToken, findTokenById, findRunnerByUser, revealNode, addLogEntry,
+  initNodeStates, initializeSpawns, resetRun, beatNode, applyDamageToToken,
+  createRunnerToken, addToken,
+} from "./data/run-state.js";
 import { openNetrun, getNetrunApp, NetrunApp } from "./apps/netrun-app.js";
 import { ArchEditorApp } from "./apps/arch-editor.js";
 import { extractActorStats, actorFromUser, actorFromSelectedToken } from "./data/actor-bridge.js";
@@ -23,7 +27,6 @@ import { MODULE_ID } from "./utils.js";
 
 Hooks.once("init", () => {
 
-  // Path to the NetrunningTilesV2 asset folder (relative to Foundry Data root)
   game.settings.register(MODULE_ID, "tilesRoot", {
     name:    "NetrunningTilesV2 Path",
     hint:    'Path to the NetrunningTilesV2 folder relative to your Foundry Data root. Default: "S/Prefaby/NetrunningTilesV2".',
@@ -33,7 +36,6 @@ Hooks.once("init", () => {
     default: "S/Prefaby/NetrunningTilesV2",
   });
 
-  // UI font scale
   game.settings.register(MODULE_ID, "fontScale", {
     name:    "UI Font Scale",
     hint:    'Scale factor for text in the netrun windows.',
@@ -44,7 +46,6 @@ Hooks.once("init", () => {
     range:   { min: 0.75, max: 2.0, step: 0.05 },
   });
 
-  // Custom Black ICE JSON editor
   // TODO - better black ice editor, any demon editor
   game.settings.register(MODULE_ID, "customBlackIce", {
     name:    "Custom Black ICE (JSON)",
@@ -55,7 +56,6 @@ Hooks.once("init", () => {
     default: "",
   });
 
-  // Animated tiles (webm) vs static (webp)
   // TODO - webm tiles don't work
   game.settings.register(MODULE_ID, "useAnimatedTiles", {
     name:    "Use Animated Tiles",
@@ -66,7 +66,6 @@ Hooks.once("init", () => {
     default: false,
   });
 
-  // Whether players can spectate (see) runs they're not jacked into
   game.settings.register(MODULE_ID, "allowSpectators", {
     name:    "Allow Spectators",
     hint:    "If enabled, all connected players see the netrun window (read-only) when a run is opened.",
@@ -76,7 +75,6 @@ Hooks.once("init", () => {
     default: false,
   });
 
-  // Architecture index (list of IDs) — hidden from config panel
   game.settings.register(MODULE_ID, "arch_index", {
     scope:   "world",
     config:  false,
@@ -84,7 +82,6 @@ Hooks.once("init", () => {
     default: "[]",
   });
 
-  // Active run state — single JSON blob
   game.settings.register(MODULE_ID, "netrun_active_run", {
     scope:   "world",
     config:  false,
@@ -93,7 +90,6 @@ Hooks.once("init", () => {
   });
 
   // Re-register any existing arch settings (from previous sessions)
-  // This runs at init so saved architectures survive module reload
   try {
     const ids = JSON.parse(game.settings.get(MODULE_ID, "arch_index") ?? "[]");
     for (const id of ids) {
@@ -124,18 +120,15 @@ Hooks.once("init", () => {
 // ── Ready ─────────────────────────────────────────────────────────────────────
 
 Hooks.once("ready", async () => {
-  // Load templates
   await loadTemplates([
     `modules/${MODULE_ID}/templates/netrun-app.hbs`,
     `modules/${MODULE_ID}/templates/arch-editor.hbs`,
   ]);
 
-  // Set up socket
   initSocket();
   _registerSocketHandlers();
 
   // ── Tile hook ──────────────────────────────────────────────────────────────
-  // Tiles flagged with cpr-netrunner.archId open the netrun window.
   // Player: opens with their linked character's stats.
   // GM:     opens with the currently selected canvas token's actor (if any).
   if (typeof Tile !== "undefined" && typeof Tile.prototype._onClickLeft2 === "function") {
@@ -161,7 +154,6 @@ Hooks.once("ready", async () => {
 
   // ── Live HP sync from actor ────────────────────────────────────────────────
   // Runs on every client. GM saves + broadcasts; non-GMs update display only.
-  // This handles HP changes from combat tracker, damage macros, etc.
   Hooks.on("updateActor", async (actor, changes) => {
     if (!foundry.utils.hasProperty(changes, "system.derivedStats.hp.value")) return;
     const app = getNetrunApp();
@@ -184,10 +176,8 @@ Hooks.once("ready", async () => {
     app.render(false);
   });
 
-  // Load custom Black ICE from setting TODO - add demons
   loadCustomBlackIce();
 
-  // Apply font scale as CSS custom property
   const applyFontScale = () => {
     try {
       const scale = game.settings.get(MODULE_ID, "fontScale") ?? 1.0;
@@ -195,14 +185,12 @@ Hooks.once("ready", async () => {
     } catch(_) {}
   };
   applyFontScale();
-  // Reapply when setting changes (Foundry fires this hook)
   Hooks.on("updateSetting", (setting) => {
     if (setting.key === `${MODULE_ID}.fontScale`) applyFontScale();
   });
 
   _registerDamageButtonHandler();
 
-  // Add "Re-open run" button to scene controls
   // TODO - do this in a better way without hooking into scene controls
   Hooks.on("getSceneControlButtons", (controls) => {
     const bar = controls.find(c => c.name === "token");
@@ -215,7 +203,6 @@ Hooks.once("ready", async () => {
       onClick: () => {
         const app = getNetrunApp();
         if (app) { app.bringToTop(); return; }
-        // Re-open last active run
         try {
           const raw = game.settings.get(MODULE_ID, "netrun_active_run");
           const rs  = raw ? JSON.parse(raw) : null;
@@ -233,16 +220,14 @@ Hooks.once("ready", async () => {
 
 function _registerSocketHandlers() {
 
-  // GM tells a user to open the netrun window
   onSocket("openNetrun", async (data) => {
     const { archId, runState, targetUserId } = data;
-    const isForMe = !targetUserId || targetUserId === game.userId;
+    const isForMe     = !targetUserId || targetUserId === game.userId;
     const isSpectator = game.settings.get(MODULE_ID, "allowSpectators") && !game.user.isGM;
 
     if (!isForMe && !isSpectator) return;
     if (game.user.isGM) return;
 
-    // Open or update local window
     const existing = getNetrunApp();
     if (existing) {
       existing.receiveStateUpdate(archId, runState);
@@ -252,7 +237,6 @@ function _registerSocketHandlers() {
     }
   });
 
-  // GM broadcasts updated state — all clients refresh their open window
   onSocket("stateUpdate", (data) => {
     const { archId, runState } = data;
     const existing = getNetrunApp();
@@ -261,7 +245,9 @@ function _registerSocketHandlers() {
     }
   });
 
-  // Player requests to move their runner — GM validates and applies
+  // Player requests to move — GM validates, applies, saves, and broadcasts.
+  // After broadcasting, the GM also updates their own local app instance because
+  // game.socket.emit does NOT deliver messages back to the sender.
   onSocket("requestMove", async (data) => {
     if (!game.user.isGM) return;
     if (game.user !== game.users.activeGM) return;
@@ -274,7 +260,6 @@ function _registerSocketHandlers() {
     const runner = findTokenById(runState, runnerId);
     if (!arch || !runner) return;
 
-    // Validate: target must be connected to current position
     const currentId = runner.currentNodeId;
     const connected = arch.connections?.some(([a, b]) =>
       (a === currentId && b === targetNodeId) || (b === currentId && a === targetNodeId));
@@ -289,14 +274,19 @@ function _registerSocketHandlers() {
 
     await saveRunState(runState);
     socketBroadcastState(runState.archId, runState);
+
+    // Update GM's own app — socket broadcast doesn't loop back to the sender
+    const app = getNetrunApp();
+    if (app?.archId === runState.archId) {
+      app.receiveStateUpdate(runState.archId, runState);
+    }
   });
 
-  // Player requests an action — GM sees it in the log, applies manually
   onSocket("requestAction", async (data) => {
     if (!game.user.isGM) return;
     if (game.user !== game.users.activeGM) return;
 
-    const { runnerId, actionType, targetNodeId, userId } = data;
+    const { runnerId, actionType, targetNodeId } = data;
     const runState = loadRunState();
     if (!runState) return;
 
@@ -306,16 +296,59 @@ function _registerSocketHandlers() {
 
     await saveRunState(runState);
     socketBroadcastState(runState.archId, runState);
+
+    const app = getNetrunApp();
+    if (app?.archId === runState.archId) {
+      app.receiveStateUpdate(runState.archId, runState);
+    }
   });
 
-  // Close all netrun windows
+  // Player requests to join the run as a runner.
+  // GM is the only authority that can persist state, so the runner is added here,
+  // saved, and then broadcast to all clients (including the requesting player).
+  onSocket("requestJoin", async (data) => {
+    if (!game.user.isGM) return;
+    if (game.user !== game.users.activeGM) return;
+
+    const { actorData, userId } = data;
+    const runState = loadRunState();
+    if (!runState) return;
+
+    // Idempotent: don't add a second runner for the same user
+    const existing = findRunnerByUser(runState, userId);
+    if (existing) return;
+
+    const tok = createRunnerToken({
+      actorId:       actorData.actorId       ?? null,
+      name:          actorData.name,
+      iconPath:      actorData.iconPath       ?? null,
+      userId,
+      color:         actorData.color          ?? "#00ffcc",
+      disposition:   "friendly",
+      interfaceRank: actorData.interfaceRank  ?? 4,
+      codingRank:    actorData.codingRank     ?? null,
+      maxHp:         actorData.hpMax          ?? 40,
+      currentHp:     actorData.hpCurrent      ?? actorData.hpMax ?? 40,
+    });
+    addToken(runState, tok);
+    addLogEntry(runState, `${tok.name} jacked in.`);
+
+    await saveRunState(runState);
+    socketBroadcastState(runState.archId, runState);
+
+    // Update GM's own app
+    const app = getNetrunApp();
+    if (app?.archId === runState.archId) {
+      app.receiveStateUpdate(runState.archId, runState);
+    }
+  });
+
   onSocket("closeNetrun", () => {
     const existing = getNetrunApp();
     if (existing) existing.close();
   });
 
-  // Architecture updated/deleted — refresh editor list if open
-  onSocket("archUpdate", (data) => {
+  onSocket("archUpdate", () => {
     const editorApp = Object.values(ui.windows).find(w => w instanceof ArchEditorApp);
     if (editorApp) editorApp.render(false);
   });
@@ -323,7 +356,6 @@ function _registerSocketHandlers() {
 
 // ── Chat damage button handler ─────────────────────────────────────────────────
 function _registerDamageButtonHandler() {
-  // Delegated click on chat log for .cpr-dmg-btn buttons
   document.addEventListener("click", async (ev) => {
     const btn = ev.target.closest(".cpr-dmg-btn");
     if (!btn) return;
@@ -355,7 +387,6 @@ function _registerDamageButtonHandler() {
     socketBroadcastState(app.archId, app.runState);
     app.render(false);
 
-    // Visual feedback: disable the button
     btn.disabled = true;
     btn.textContent = `Applied: ${amount}`;
     btn.style.opacity = "0.5";
@@ -365,7 +396,6 @@ function _registerDamageButtonHandler() {
 // ── Global API ────────────────────────────────────────────────────────────────
 
 globalThis.CprNetrunner = {
-  // Open the architecture editor (GM only)
   openEditor(archId = null) {
     if (!game.user.isGM) {
       ui.notifications.warn("CPR Netrunner | The architecture editor is GM-only.");
@@ -376,23 +406,16 @@ globalThis.CprNetrunner = {
     new ArchEditorApp(archId).render(true);
   },
 
-  // Open a netrun window (GM triggers for player via MAT)
-  // In MAT "Run Code": const _uid = game.users.find(u => u.character?.id === actor?.id)?.id ?? game.userId;
-  //                    CprNetrunner.openNetrun("arch-uuid", _uid)
   openNetrun(archId, targetUserId = null, actorData = null) {
     if (!game.user.isGM && targetUserId && targetUserId !== game.userId) return;
     return openNetrun(archId, targetUserId, actorData);
   },
 
-  // Open a netrun by tile flag — call from MAT on the tile.
-  // Uses actor-bridge to pull a clean stats snapshot from the actor.
-  // In MAT "Run Code": CprNetrunner.openNetrunFromTile(tile)
   openNetrunFromTile(tileDoc, actorArg = null) {
     const archId = tileDoc?.document?.getFlag?.(MODULE_ID, "archId")
       ?? tileDoc?.getFlag?.(MODULE_ID, "archId");
     if (!archId) { ui.notifications.warn("CPR Netrunner | This tile has no architecture linked."); return; }
 
-    // MAT Run Code injects `actor` into scope; actorArg is a fallback
     let a = actorArg;
     try { if (!a) a = actor; } catch(_) {}
 
@@ -402,7 +425,6 @@ globalThis.CprNetrunner = {
     return openNetrun(archId, _uid, actorData);
   },
 
-  // Link an architecture to a tile (call in console with tile selected)
   async linkTile(archId) {
     if (!game.user.isGM) return;
     if (!canvas.tiles.controlled.length) {
@@ -414,12 +436,10 @@ globalThis.CprNetrunner = {
     ui.notifications.info(`CPR Netrunner | Tile linked to architecture ${archId}.`);
   },
 
-  // List all saved architectures
   listArchitectures() {
     return loadAllArchitectures().map(a => ({ id: a.id, name: a.name, nodes: Object.keys(a.nodes).length }));
   },
 
-  // Low-level access for power users
   _loadArchitecture:  loadArchitecture,
   _saveArchitecture:  saveArchitecture,
   _loadRunState:      loadRunState,

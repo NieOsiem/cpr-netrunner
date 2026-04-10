@@ -7,6 +7,7 @@
  *   stateUpdate   — GM broadcasts full run state to all clients
  *   requestMove   — player requests to move (GM validates and applies)
  *   requestAction — player requests an action (GM applies effects manually)
+ *   requestJoin   — player requests to be added as a runner (GM validates and adds)
  *   closeNetrun   — GM ends the run, close all windows
  *
  * Pattern: GM is always authority. Players send requests, GM applies & broadcasts.
@@ -50,13 +51,14 @@ export function socketOpenNetrun(archId, runState, targetUserId = null) {
 /**
  * GM broadcasts full run state to all connected clients.
  * Called after every state change.
+ * NOTE: game.socket.emit does NOT deliver to the sender — the GM must update
+ * their own app instance separately after calling this.
  */
 export function socketBroadcastState(archId, runState) {
   emit("stateUpdate", { archId, runState });
 }
 
-
-//Player requests to move their runner to a node.
+// Player requests to move their runner to a node.
 export function socketRequestMove(runnerId, targetNodeId) {
   emit("requestMove", { runnerId, targetNodeId, userId: game.userId });
 }
@@ -69,7 +71,16 @@ export function socketRequestAction(runnerId, actionType, targetNodeId = null, e
   emit("requestAction", { runnerId, actionType, targetNodeId, extra, userId: game.userId });
 }
 
-//Close the netrun window on all clients.
+/**
+ * Player requests to be added as a runner in the active run.
+ * GM receives this, creates the token with full actor stats, saves, and broadcasts.
+ * actorData shape: { actorId, name, iconPath, color, interfaceRank, codingRank, hpMax, hpCurrent }
+ */
+export function socketRequestJoin(actorData) {
+  emit("requestJoin", { actorData, userId: game.userId });
+}
+
+// Close the netrun window on all clients.
 export function socketCloseNetrun() {
   emit("closeNetrun", {});
 }
