@@ -228,6 +228,7 @@ function _nodeCell(node, col, row, opts) {
   }
 
   // Tokens — drawn if at least the node is questionmark (runners shown, ICE tokens only if revealed)
+  // Rendered BEFORE labels so they appear on top
   if (tokens.length && (showFull || showQ)) {
     const visibleTokens = showFull ? tokens : tokens.filter(t => t.type === "runner");
     if (visibleTokens.length) {
@@ -245,7 +246,7 @@ function _nodeCell(node, col, row, opts) {
     inner += `<div class="node-gmnotes-badge" title="${escHtml(node.gmNotes)}">📝</div>`;
   }
 
-  // Labels
+  // Labels - rendered after tokens so they overlay on top
   if (label || subtitle) {
     inner += `<div class="node-labels">`;
     if (label)    inner += `<div class="node-label">${escHtml(label)}</div>`;
