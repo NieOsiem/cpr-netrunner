@@ -219,10 +219,8 @@ function _nodeCell(node, col, row, opts) {
     inner += `<div class="${badgeCls}" title="${badgeTip}"></div>`;
   }
 
-  // Type icon badge (top-right)
-  if (showFull && typeIconUrl && node.type !== "empty") {
-    inner += renderMediaElement(typeIconUrl, node.type, "node-type-icon", false);
-  }
+  // Type icon badge (top-right) - REMOVED as per UI update
+  // Type is now represented by tile border color and token styling
 
   // Entry badge
   if (isEntry) {
@@ -230,6 +228,7 @@ function _nodeCell(node, col, row, opts) {
   }
 
   // Tokens — drawn if at least the node is questionmark (runners shown, ICE tokens only if revealed)
+  // Rendered AFTER labels so they appear on top
   if (tokens.length && (showFull || showQ)) {
     const visibleTokens = showFull ? tokens : tokens.filter(t => t.type === "runner");
     if (visibleTokens.length) {
@@ -247,7 +246,7 @@ function _nodeCell(node, col, row, opts) {
     inner += `<div class="node-gmnotes-badge" title="${escHtml(node.gmNotes)}">📝</div>`;
   }
 
-  // Labels
+  // Labels - rendered before tokens so tokens overlay on top
   if (label || subtitle) {
     inner += `<div class="node-labels">`;
     if (label)    inner += `<div class="node-label">${escHtml(label)}</div>`;
@@ -305,10 +304,10 @@ function _token(tok, tilesRoot, isSelected = false, isTargeted = false) {
                title="${escHtml(tok.name)}">
     <div class="token-img-wrap">
       ${renderMediaElement(imgSrc, tok.name, "", false)}
-      ${isTargeted ? '<div class="token-target-ring"></div>' : ''}
     </div>
     ${rezBar}
     <span class="token-name">${escHtml(tok.name)}</span>
+    ${isTargeted ? '<div class="token-target-ring"></div>' : ''}
   </div>`;
 }
 

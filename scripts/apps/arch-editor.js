@@ -150,9 +150,9 @@ export class ArchEditorApp extends Application {
   html.find(".prop-ice-sel").on("change", ev => this._patchData({ iceName: ev.target.value }));
   html.find(".prop-dv-sel").on("change", ev => this._patchData({ dv: parseInt(ev.target.value) }));
   html.find(".prop-label").on("input", ev => this._patchLabel(ev.target.value));
-  html.find(".prop-node-label").on("input", ev => this._patchData({ label: ev.target.value }));
-  html.find(".prop-contents").on("input", ev => this._patchData({ contents: ev.target.value }));
-  html.find(".prop-defenses").on("input", ev => this._patchData({ defenses: ev.target.value }));
+  html.find(".prop-node-label").on("input", ev => this._patchNodeLabel(ev.target.value));
+  html.find(".prop-contents").on("input", ev => this._patchContents(ev.target.value));
+  html.find(".prop-defenses").on("input", ev => this._patchDefenses(ev.target.value));
   html.find(".prop-demon-sel").on("change", ev => this._patchData({ demonName: ev.target.value }));
   html.on("click", ".btn-add-spawn", ev => this._addSpawn());
   html.on("click", ".btn-rm-spawn", ev => this._removeSpawn(parseInt(ev.currentTarget.dataset.idx)));
@@ -272,6 +272,37 @@ export class ArchEditorApp extends Application {
     if (!this._arch || !this._selectedNodeId) return;
     const node = this._arch.nodes[this._selectedNodeId];
     if (node) { node.label = val; this._markDirty(); }
+  }
+
+  _patchNodeLabel(val) {
+    if (!this._arch || !this._selectedNodeId) return;
+    const node = this._arch.nodes[this._selectedNodeId];
+    if (node) {
+      node.data.label = val;
+      // Store pending change without re-rendering
+      this._pendingLabelChange = { nodeId: this._selectedNodeId, label: val };
+      this._markDirty();
+    }
+  }
+
+  _patchContents(val) {
+    if (!this._arch || !this._selectedNodeId) return;
+    const node = this._arch.nodes[this._selectedNodeId];
+    if (node) {
+      node.data.contents = val;
+      this._pendingContentsChange = { nodeId: this._selectedNodeId, contents: val };
+      this._markDirty();
+    }
+  }
+
+  _patchDefenses(val) {
+    if (!this._arch || !this._selectedNodeId) return;
+    const node = this._arch.nodes[this._selectedNodeId];
+    if (node) {
+      node.data.defenses = val;
+      this._pendingDefensesChange = { nodeId: this._selectedNodeId, defenses: val };
+      this._markDirty();
+    }
   }
 
   _addSpawn() {
