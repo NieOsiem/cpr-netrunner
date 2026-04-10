@@ -8,6 +8,8 @@
  * world setting (JSON). On module ready, loadCustomBlackIce() merges it in.
  */
 
+import { MODULE_ID } from "../utils.js";
+
 // ── Node Types ─────────────────────────────────────────────────────────────────
 export const NODE_TYPES = {
   black_ice:    { label: "Black ICE",    color: "#ff3030" },
@@ -79,7 +81,7 @@ export const BLACK_ICE = {
  */
 export function loadCustomBlackIce() {
   try {
-    const raw = game.settings.get("cpr-netrunner", "customBlackIce");
+    const raw = game.settings.get(MODULE_ID, "customBlackIce");
     if (!raw || raw.trim() === "" || raw.trim() === "{}") return;
     const custom = JSON.parse(raw);
     for (const [name, stats] of Object.entries(custom)) {
@@ -89,6 +91,44 @@ export function loadCustomBlackIce() {
   } catch (e) {
     console.warn("CPR Netrunner | Failed to parse customBlackIce setting:", e);
     ui.notifications?.warn("CPR Netrunner | Custom Black ICE JSON is invalid — check Module Settings.");
+  }
+}
+
+/**
+ * Load custom node asset configurations from world settings and merge them
+ * into NODE_ASSET_CONFIG at runtime. Called once on module ready.
+ * 
+ * @returns {Promise<void>}
+ */
+export async function loadCustomNodeAssets() {
+  try {
+    const raw = game.settings.get(MODULE_ID, "customNodeAssets");
+    if (!raw || raw.trim() === "" || raw.trim() === "{}") return;
+    
+    const custom = JSON.parse(raw);
+    let count = 0;
+    
+    for (const [nodeType, config] of Object.entries(custom)) {
+      if (NODE_ASSET_CONFIG[nodeType]) {
+        // Merge with existing config, preserving unspecified properties
+        NODE_ASSET_CONFIG[nodeType] = {
+          ...NODE_ASSET_CONFIG[nodeType],
+          ...config
+        };
+        count++;
+      } else {
+        // Add entirely new node type if it doesn't exist
+        NODE_ASSET_CONFIG[nodeType] = config;
+        count++;
+      }
+    }
+    
+    if (count > 0) {
+      console.log(`CPR Netrunner | Loaded ${count} custom node asset configurations.`);
+    }
+  } catch (e) {
+    console.warn("CPR Netrunner | Failed to parse customNodeAssets setting:", e);
+    ui.notifications?.warn("CPR Netrunner | Custom Node Assets JSON is invalid — check Module Settings.");
   }
 }
 
@@ -121,22 +161,131 @@ export const PROGRAMS = {
 // ── Difficulty ────────────────────────────────────────────────────────────────
 export const DV_BY_DIFFICULTY = { basic:6, standard:8, uncommon:10, advanced:12 };
 
+// ── Node Asset Configuration ──────────────────────────────────────────────────
+/**
+ * Maps node types to their asset folder and tile naming conventions.
+ * This configuration can be extended via world settings for custom setups.
+ * 
+ * For node types with DV variants:
+ * - The base folder contains generic tiles (no DV-specific version)
+ * - DV variant folders are named {BASE_FOLDER}-DV{value} (e.g., PASSWORD-DV6)
+ * - Tile files in DV folders follow the pattern {FOLDER_NAME}-TILE ({variant}).ext
+ *   Example: PASSWORD-DV6/PASSWORD-DV6-TILE (1).webp
+ */
+export const NODE_ASSET_CONFIG = {
+  black_ice: {
+    folder: "BLACKICE",
+    baseName: "BLACKICE-TILE",
+    supportsDV: false,
+    defaultColor: "#ff3030"
+  },
+  password: {
+    folder: "PASSWORD",
+    baseName: "PASSWORD-TILE",
+    supportsDV: true,
+    dvFolders: ["PASSWORD-DV6", "PASSWORD-DV8", "PASSWORD-DV10", "PASSWORD-DV12"],
+    defaultColor: "#4488ff"
+  },
+  file: {
+    folder: "FILE",
+    baseName: "FILE-TILE",
+    supportsDV: true,
+    dvFolders: ["FILE-DV6", "FILE-DV8", "FILE-DV10", "FILE-DV12"],
+    defaultColor: "#44ff88"
+  },
+  control_node: {
+    folder: "CONTROLNODE",
+    baseName: "CONTROLNODE-TILE",
+    supportsDV: true,
+    dvFolders: ["CONTROLNODE-DV6", "CONTROLNODE-DV8", "CONTROLNODE-DV10", "CONTROLNODE-DV12"],
+    defaultColor: "#ffaa00"
+  },
+  system: {
+    folder: "ROOT",
+    baseName: "ROOT-TILE",
+    supportsDV: false,
+    defaultColor: "#00aaff"
+  },
+  empty: {
+    folder: "BLANK-TILES/SKY",
+    baseName: "BG-SKY",
+    supportsDV: false,
+    defaultColor: "#445566"
+  },
+  demon: {
+    folder: "DEMON",
+    baseName: "DEMON-TILE",
+    supportsDV: false,
+    defaultColor: "#cc44ff"
+  }
+};
+
 // ── Floor tile image path ─────────────────────────────────────────────────────
 export function tileExt() {
-  try { return game.settings.get("cpr-netrunner","useAnimatedTiles") ? "webm" : "webp"; }
+  try { return game.settings.get(MODULE_ID, "useAnimatedTiles") ? "webm" : "webp"; }
   catch { return "webp"; }
 }
 
+/**
+ * Universal function to get the correct tile image path for any node type.
+ * 
+ * @param {string} tilesRoot - Base path to the tiles directory
+ * @param {string} nodeType - Type of node (from NODE_TYPES)
+ * @param {object} nodeData - Node's data object (may contain dv, etc.)
+ * @param {number} variant - Tile variant number (1-13) for randomization
+ * @returns {string} Full path to the tile image
+ * 
+ * Logic:
+ * - If node has DV and type supports DV variants: try exact DV match first
+ * - Fall back to generic tile for that type if DV variant doesn't exist
+ * - For nodes without DV: use generic tile directly
+ * - TODO: Add support for manually selecting TILE vs 3X3 variant per node
+ * - TODO: Add GM option to force generic tile even when DV variant exists
+ */
 export function getTileImagePath(tilesRoot, nodeType, nodeData, variant = 1) {
-  const v   = Math.max(1, Math.min(13, Math.round(variant)));
-  const ext = tileExt();
-  const vb  = (v % 4) + 1;
-  switch (nodeType) {
-    case "black_ice": return `${tilesRoot}/BLACKICE/BLACKICE-TILE (${v}).${ext}`;
-    case "password":  return `${tilesRoot}/BLANK-TILES/RED/BG-RED${vb}.${ext}`;
-    case "file":      return `${tilesRoot}/BLANK-TILES/GREEN/BG-GREEN${vb}.${ext}`;
-    default:          return `${tilesRoot}/BLANK-TILES/BLUE/BG-BLUE${vb}.${ext}`;
+  const config = NODE_ASSET_CONFIG[nodeType];
+  
+  // Fallback to empty sky tile if node type is unknown
+  if (!config) {
+    console.warn(`CPR Netrunner | Unknown node type "${nodeType}", using empty tile.`);
+    config = NODE_ASSET_CONFIG.empty;
   }
+  
+  const { folder, baseName, supportsDV, dvFolders } = config;
+  const ext = tileExt();
+  const v = Math.max(1, Math.min(13, Math.round(variant)));
+  
+  // Check if we should use a DV-specific variant
+  if (supportsDV && nodeData?.dv !== undefined && nodeData.dv !== null && dvFolders) {
+    const dvValue = parseInt(nodeData.dv);
+    
+    // Determine the DV folder based on exact DV value
+    // DV6 for <=7, DV8 for 8-9, DV10 for 10-11, DV12 for >=12
+    let dvFolder;
+    if (dvValue <= 7) {
+      dvFolder = dvFolders[0]; // PASSWORD-DV6, FILE-DV6, etc.
+    } else if (dvValue <= 9) {
+      dvFolder = dvFolders[1]; // PASSWORD-DV8, FILE-DV8, etc.
+    } else if (dvValue <= 11) {
+      dvFolder = dvFolders[2]; // PASSWORD-DV10, FILE-DV10, etc.
+    } else {
+      dvFolder = dvFolders[3]; // PASSWORD-DV12, FILE-DV12, etc.
+    }
+    
+    // Construct path for DV-specific tile
+    // Format: {tilesRoot}/PASSWORD-DV6/PASSWORD-DV6-TILE (1).webp
+    // The tile file in DV folders uses the pattern {FOLDER_NAME}-TILE ({variant}).ext
+    const dvBaseName = `${dvFolder}-TILE`; // e.g., "PASSWORD-DV6-TILE"
+    const dvPath = `${tilesRoot}/${dvFolder}/${dvBaseName} (${v}).${ext}`;
+    
+    // Return DV-specific path
+    // Note: Foundry will show a placeholder if the file doesn't exist
+    // TODO: Implement FilePicker check to verify file exists before returning
+    return dvPath;
+  }
+  
+  // Return generic tile path for this node type
+  return `${tilesRoot}/${folder}/${baseName} (${v}).${ext}`;
 }
 
 // ── Token icon path ───────────────────────────────────────────────────────────
@@ -179,14 +328,16 @@ export function getNodeTypeIconPath(tilesRoot, nodeType, nodeData) {
 /**
  * Returns the folder path and filename prefix for tile variants of the given
  * node type. Used to browse the actual files rather than assume a count.
+ * Updated to use NODE_ASSET_CONFIG for all node types.
  */
 export function getTileScanFolder(tilesRoot, nodeType) {
-  switch (nodeType) {
-    case "black_ice": return { folder: `${tilesRoot}/BLACKICE`,          prefix: "BLACKICE-TILE" };
-    case "password":  return { folder: `${tilesRoot}/BLANK-TILES/RED`,   prefix: "BG-RED" };
-    case "file":      return { folder: `${tilesRoot}/BLANK-TILES/GREEN`, prefix: "BG-GREEN" };
-    default:          return { folder: `${tilesRoot}/BLANK-TILES/BLUE`,  prefix: "BG-BLUE" };
+  const config = NODE_ASSET_CONFIG[nodeType];
+  if (!config) {
+    // Fallback to empty sky tiles for unknown types
+    return { folder: `${tilesRoot}/BLANK-TILES/SKY`, prefix: "BG-SKY" };
   }
+  
+  return { folder: `${tilesRoot}/${config.folder}`, prefix: config.baseName };
 }
 
 /**

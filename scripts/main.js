@@ -10,7 +10,7 @@
  */
 
 import { loadAllArchitectures, loadArchitecture, saveArchitecture } from "./data/architecture.js";
-import { loadCustomBlackIce } from "./data/node-defs.js";
+import { loadCustomBlackIce, loadCustomNodeAssets } from "./data/node-defs.js";
 import { loadRunState, saveRunState } from "./data/run-state.js";
 import { initSocket, onSocket, socketBroadcastState } from "./socket.js";
 import {
@@ -54,6 +54,19 @@ Hooks.once("init", () => {
     config:  true,
     type:    String,
     default: "",
+  });
+
+  // Custom node assets configuration - allows GMs to override tile paths
+  game.settings.register(MODULE_ID, "customNodeAssets", {
+    name:    "Custom Node Assets (JSON)",
+    hint:    "JSON configuration for customizing node asset folder paths. Format: { \"nodeType\": { \"folder\": \"FOLDER_NAME\", \"baseName\": \"BASE_NAME\" } }",
+    scope:   "world",
+    config:  true,
+    type:    String,
+    default: "{}",
+    onChange: () => {
+      console.log("CPR Netrunner | Custom node assets updated. Reload may be required.");
+    }
   });
 
   // TODO - webm tiles don't work
@@ -175,7 +188,9 @@ Hooks.once("ready", async () => {
     app.render(false);
   });
 
+  // Load custom configurations from world settings
   loadCustomBlackIce();
+  await loadCustomNodeAssets();
 
   const applyFontScale = () => {
     try {
