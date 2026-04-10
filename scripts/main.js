@@ -318,6 +318,10 @@ function _registerSocketHandlers() {
     const existing = findRunnerByUser(runState, userId);
     if (existing) return;
 
+    // Place the runner on the entry node of the current architecture
+    const arch        = loadArchitecture(runState.archId);
+    const entryNodeId = arch?.entryNodeId ?? null;
+
     const tok = createRunnerToken({
       actorId:       actorData.actorId       ?? null,
       name:          actorData.name,
@@ -329,6 +333,8 @@ function _registerSocketHandlers() {
       codingRank:    actorData.codingRank     ?? null,
       maxHp:         actorData.hpMax          ?? 40,
       currentHp:     actorData.hpCurrent      ?? actorData.hpMax ?? 40,
+      currentNodeId: entryNodeId,
+      homeNodeId:    entryNodeId,
     });
     addToken(runState, tok);
     addLogEntry(runState, `${tok.name} jacked in.`);

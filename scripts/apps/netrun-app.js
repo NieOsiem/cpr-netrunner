@@ -529,18 +529,11 @@ export class NetrunApp extends Application {
     const arch = this._getArch();
     if (!arch) return;
     const myRunner = findRunnerByUser(this.runState, game.userId);
-    if (!myRunner?.currentNodeId) {
-      ui.notifications.warn("Your runner is not on the map.");
-      return;
-    }
+    if (!myRunner?.currentNodeId) return;
     const opts     = this._getAdjacentMoveOptions(arch, myRunner.currentNodeId);
     const targetId = opts?.[dir];
-    if (!targetId) {
-      ui.notifications.warn("No connected node in that direction.");
-      return;
-    }
+    if (!targetId) return;
     socketRequestMove(myRunner.id, targetId);
-    ui.notifications.info("Move request sent to GM.");
   }
 
   async _gmToggleTokenActive() {
@@ -655,11 +648,10 @@ export class NetrunApp extends Application {
   // ── Player ────────────────────────────────────────────────────────────────────
 
   async _playerRequestMove() {
-    if (!this._selNodeId) { ui.notifications.warn("Select a node to move to."); return; }
+    if (!this._selNodeId) return;
     const myRunner = findRunnerByUser(this.runState, game.userId);
-    if (!myRunner) { ui.notifications.warn("You have no runner in this run."); return; }
+    if (!myRunner) return;
     socketRequestMove(myRunner.id, this._selNodeId);
-    ui.notifications.info("Move request sent to GM.");
   }
 
   async _rollAction(actionName) {
@@ -709,6 +701,10 @@ export class NetrunApp extends Application {
  * GM path: creates the run if needed, auto-adds actor's runner if actorData resolved.
  * Player path: opens the window with current state; sends socketRequestJoin so the
  *   GM's handler can add and persist the runner, then broadcasts back to all clients.
+ *
+ * KEY INVARIANT: socket sends always run after the local window logic, even if the
+ * GM's own window was already open. This is what allows players to reopen their window
+ * by clicking the tile again — the GM's existing window must not short-circuit the send.
  */
 export async function openNetrun(archId, targetUserId = null, actorData = null) {
   // Auto-resolve actorData from the target (or current) user's linked character.
@@ -739,13 +735,14 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
         await saveRunState(runState);
       }
 
-      // Auto-add the selected actor's runner when GM opens with actorData
+      // Auto-add the resolved actor's runner, placed on the entry node
       if (actorData?.actorId) {
         const alreadyIn = runState.tokens?.some(
           t => t.type === "runner" && t.actorId === actorData.actorId
         );
         if (!alreadyIn) {
           const linkedUserId = game.users.find(u => u.character?.id === actorData.actorId)?.id ?? null;
+          const entryNodeId  = arch.entryNodeId ?? null;
           const tok = createRunnerToken({
             actorId:       actorData.actorId,
             name:          actorData.name,
@@ -757,6 +754,8 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
             codingRank:    actorData.codingRank    ?? null,
             maxHp:         actorData.hpMax         ?? 40,
             currentHp:     actorData.hpCurrent     ?? actorData.hpMax ?? 40,
+            currentNodeId: entryNodeId,
+            homeNodeId:    entryNodeId,
           });
           addToken(runState, tok);
           addLogEntry(runState, `${tok.name} jacked in.`);
@@ -781,17 +780,25 @@ export async function openNetrun(archId, targetUserId = null, actorData = null) 
       return;
     }
 
+    // Manage the local window. If already open for this arch, just refresh it.
+    // Critically: do NOT return early here — the socket sends below must always run
+    // so that players can reopen their windows by clicking the tile again.
     if (_instance) {
       if (_instance.archId !== archId) {
         await _instance.close();
+        new NetrunApp(archId, runState).render(true);
       } else {
+        _instance.receiveStateUpdate(archId, runState);
         _instance.bringToTop();
-        return;
+        // fall through to socket sends below
       }
+    } else {
+      new NetrunApp(archId, runState).render(true);
     }
-    new NetrunApp(archId, runState).render(true);
   }
 
+  // Always send socket messages so players can reopen their windows at any time.
+  // These run even if the GM's own window was already open.
   if (targetUserId && targetUserId !== game.userId) {
     socketOpenNetrun(archId, loadRunState(), targetUserId);
   } else if (isGM()) {
