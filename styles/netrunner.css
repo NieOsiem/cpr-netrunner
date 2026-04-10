@@ -95,7 +95,6 @@
   background: var(--cpr-bg-panel);
   border-bottom: 1px solid rgba(0,255,204,0.1);
   flex-shrink: 0;
-  height: 32px;
 }
 .net-arch-name { 
   color: var(--cpr-cyan); 
@@ -251,8 +250,7 @@
 
 .arch-node {
   width: 160px; height: 160px; position: relative; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-end;
-  border-radius: 4px; background: rgba(3,8,16,0.85); overflow: hidden; cursor: pointer;
+  align-items: center; justify-content: flex-end; border: none;
   transition: box-shadow 0.12s; user-select: none;
 }
 .arch-node:hover { box-shadow: 0 0 14px rgba(0,255,204,0.12); }
@@ -260,24 +258,10 @@
 .arch-node.node-beaten { opacity: 0.4; filter: grayscale(0.6); }
 .arch-node.node-entry { box-shadow: 0 0 14px rgba(255,170,0,0.3); }
 .arch-node.node-qmark { cursor: default; }
-.arch-node.node-type-black_ice { }
-.arch-node.node-type-password { }
-.arch-node.node-type-file { }
-.arch-node.node-type-control_node { }
-.arch-node.node-type-demon { }
-.arch-node.node-type-system { }
-.arch-node.node-type-empty { }
 
 .node-tile-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.75; pointer-events: none; }
 .node-tile-bg video { object-fit: cover; }
 .node-tile-qmark { display: flex; align-items: center; justify-content: center; background: rgba(6,16,30,0.95); color: #334455; font-size: 48px; font-weight: bold; width: 100%; height: 100%; position: absolute; }
-
-/* Node type icon badge — REMOVED as per UI update */
-/* .node-type-icon {
-  position: absolute; top: 5px; right: 5px; width: 36px; height: 36px;
-  object-fit: contain; filter: drop-shadow(0 0 4px rgba(0,0,0,0.8));
-  pointer-events: none; z-index: 3; background: transparent; border: none; outline: none; box-shadow: none;
-} */
 
 .node-entry-badge { position: absolute; bottom: 4px; left: 4px; font-size: 8px; color: var(--cpr-orange); letter-spacing: 1px; background: rgba(0,0,0,0.6); padding: 1px 4px; border: 1px solid rgba(255,170,0,0.4); z-index: 51; }
 .node-labels { position: absolute; top: 0; left: 0; right: 0; z-index: 50; background: rgba(3,8,16,0.84); padding: 2px 4px 3px; }
@@ -307,7 +291,7 @@
 ══════════════════════════════════════════════════════════════════════════════ */
 .node-tokens {
   position: absolute;
-  top: 28px;
+  top: 0;
   bottom: 0;
   left: 0;
   right: 0;
@@ -356,10 +340,7 @@
   margin: 0;
 }
 
-/* Token type borders - unified dark background for netrunners only, transparent for others */
-.token-runner img, .token-runner video {
-  background: rgba(0,0,0,0.6);
-}
+.token-runner img, .token-runner video,
 .token-ice img, .token-ice video,
 .token-demon img, .token-demon video {
   background: transparent;
@@ -391,14 +372,6 @@
   opacity: 1;
 }
 
-/* Token border hierarchy:
-   Bottom: Default (size M)
-   Above: Selected (size L, underneath all)
-   Above: Hover (size M)
-   Top: Targeted ring (size S)
-*/
-
-/* Selected border - larger, underneath hover/target rings */
 .token.token-selected .token-img-wrap::before {
   content: "";
   position: absolute;
@@ -410,7 +383,6 @@
   z-index: 95;
 }
 
-/* Hover border - medium size, above selected but below targeted */
 .token:hover .token-img-wrap::after {
   content: "";
   position: absolute;
@@ -426,13 +398,7 @@
   border-color: var(--cpr-cyan) !important;
 }
 
-/* Disposition tint on token base - removed faint always-visible frame */
-.tok-disp-friendly .token-img-wrap { }
-.tok-disp-neutral  .token-img-wrap { }
-.tok-disp-enemy    .token-img-wrap { }
 
-/* Token scaling for crowded tiles - progressive reduction */
-/* 2 tokens: scale down to fit side by side horizontally */
 .node-tokens:has(.token:nth-child(2)) .token { width: 64px; }
 .node-tokens:has(.token:nth-child(2)) .token img,
 .node-tokens:has(.token:nth-child(2)) .token video { width: 64px; height: 64px; }
