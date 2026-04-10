@@ -251,22 +251,22 @@
 
 .arch-node {
   width: 160px; height: 160px; position: relative; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-end; border: 2px solid rgba(var(--node-color-rgb,0,255,204), 0.3);
+  align-items: center; justify-content: flex-end; border: none;
   border-radius: 4px; background: rgba(3,8,16,0.85); overflow: hidden; cursor: pointer;
-  transition: border-color 0.12s, box-shadow 0.12s; user-select: none;
+  transition: box-shadow 0.12s; user-select: none;
 }
-.arch-node:hover { border-color: rgba(0,255,204,0.5); box-shadow: 0 0 14px rgba(0,255,204,0.12); }
-.arch-node.node-selected { border-color: var(--cpr-cyan) !important; box-shadow: 0 0 20px rgba(0,255,204,0.4) !important; }
+.arch-node:hover { box-shadow: 0 0 14px rgba(0,255,204,0.12); }
+.arch-node.node-selected { box-shadow: 0 0 20px rgba(0,255,204,0.4) !important; }
 .arch-node.node-beaten { opacity: 0.4; filter: grayscale(0.6); }
-.arch-node.node-entry { border-color: var(--cpr-orange) !important; box-shadow: 0 0 14px rgba(255,170,0,0.3); }
-.arch-node.node-qmark { border-color: rgba(40, 60, 80, 0.5) !important; cursor: default; }
-.arch-node.node-type-black_ice { border-color: rgba(255,48,48,0.4); }
-.arch-node.node-type-password { border-color: rgba(68,136,255,0.4); }
-.arch-node.node-type-file { border-color: rgba(68,255,136,0.4); }
-.arch-node.node-type-control_node { border-color: rgba(255,170,0,0.4); }
-.arch-node.node-type-demon { border-color: rgba(204,68,255,0.4); }
-.arch-node.node-type-system { border-color: rgba(0, 170, 255, 0.45); }
-.arch-node.node-type-empty { border-color: rgba(68,85,102,0.3); }
+.arch-node.node-entry { box-shadow: 0 0 14px rgba(255,170,0,0.3); }
+.arch-node.node-qmark { cursor: default; }
+.arch-node.node-type-black_ice { }
+.arch-node.node-type-password { }
+.arch-node.node-type-file { }
+.arch-node.node-type-control_node { }
+.arch-node.node-type-demon { }
+.arch-node.node-type-system { }
+.arch-node.node-type-empty { }
 
 .node-tile-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.75; pointer-events: none; }
 .node-tile-bg video { object-fit: cover; }
@@ -280,7 +280,7 @@
 } */
 
 .node-entry-badge { position: absolute; bottom: 28px; left: 5px; font-size: 8px; color: var(--cpr-orange); letter-spacing: 1px; background: rgba(0,0,0,0.6); padding: 1px 4px; border: 1px solid rgba(255,170,0,0.4); z-index: 51; }
-.node-labels { position: absolute; bottom: 0; left: 0; right: 0; z-index: 50; background: rgba(3,8,16,0.84); padding: 2px 4px 3px; }
+.node-labels { position: absolute; top: 0; left: 0; right: 0; z-index: 50; background: rgba(3,8,16,0.84); padding: 2px 4px 3px; }
 .node-label { font-size: calc(11px * var(--cpr-font-scale)); color: #ccddee; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.5px; line-height: 1.3; }
 .node-subtitle { font-size: calc(9px * var(--cpr-font-scale)); color: #7a9aaa; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.3px; line-height: 1.3; font-style: italic; }
 .vis-badge { position: absolute; top: 4px; left: 4px; width: 9px; height: 9px; border-radius: 50%; z-index: 61; border: 1px solid rgba(0,0,0,0.4); }
@@ -307,7 +307,7 @@
 ══════════════════════════════════════════════════════════════════════════════ */
 .node-tokens {
   position: absolute;
-  top: 0;
+  top: 28px;
   bottom: 0;
   left: 0;
   right: 0;
@@ -356,24 +356,11 @@
   margin: 0;
 }
 
-/* Token type borders - unified dark background for all token types */
+/* Token type borders - unified dark background for all token types (default frame removed) */
 .token-runner img, .token-runner video,
 .token-ice img, .token-ice video,
 .token-demon img, .token-demon video {
   background: rgba(0,0,0,0.6);
-}
-
-.token-runner img, .token-runner video {
-  border: 3px solid var(--tok-color, #00ffcc);
-  box-shadow: 0 0 10px var(--tok-color, #00ffcc);
-}
-.token-ice img, .token-ice video {
-  border: 3px solid rgba(255,48,48,0.6);
-  box-shadow: 0 0 8px rgba(255,48,48,0.4);
-}
-.token-demon img, .token-demon video {
-  border: 3px solid rgba(204,68,255,0.6);
-  box-shadow: 0 0 8px rgba(204,68,255,0.4);
 }
 .token-active img, .token-active video {
   box-shadow: 0 0 18px rgba(255,48,48,0.9) !important;
