@@ -219,10 +219,8 @@ function _nodeCell(node, col, row, opts) {
     inner += `<div class="${badgeCls}" title="${badgeTip}"></div>`;
   }
 
-  // Type icon badge (top-right)
-  if (showFull && typeIconUrl && node.type !== "empty") {
-    inner += renderMediaElement(typeIconUrl, node.type, "node-type-icon", false);
-  }
+  // Type icon badge (top-right) - REMOVED as per UI update
+  // Type is now represented by tile border color and token styling
 
   // Entry badge
   if (isEntry) {
