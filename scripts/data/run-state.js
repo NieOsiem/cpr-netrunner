@@ -23,7 +23,7 @@
  *   maxRez,        // max REZ (copied from statblock at spawn)
  *   active,        // ICE/demon: is it chasing someone?
  *   targetTokenId, // ICE/demon: which token it's targeting
- *   iconPath,      // optional custom icon override
+ *   iconPath,      // custom icon — populated from the entity definition's iconPath if set
  * }
  */
 
@@ -49,11 +49,11 @@ export function createRunnerToken(opts = {}) {
     type:            "runner",
     name:            opts.name          ?? "Runner",
     iconPath:        opts.iconPath      ?? null,
-    actorId:         opts.actorId       ?? null,   // Foundry Actor id (null = manual)
+    actorId:         opts.actorId       ?? null,
     userId:          opts.userId        ?? null,
     isNPC:           opts.isNPC         ?? false,
     interfaceRank:   rank,
-    codingRank:      opts.codingRank    ?? null,   // null = same as interfaceRank
+    codingRank:      opts.codingRank    ?? null,
     netActionsTotal: netActionsFromRank(rank),
     netActionsUsed:  0,
     maxHp,
@@ -76,7 +76,10 @@ export function createIceToken(iceName, homeNodeId, opts = {}) {
     type:          "black_ice",
     name:          iceName,
     iceName:       iceName,
-    iconPath:      null,   // optional custom icon override
+    // Use definition-level iconPath if no explicit override is provided in opts.
+    // This means tokens spawned from architecture nodes automatically pick up
+    // the iconPath set in the Custom Black ICE editor.
+    iconPath:      opts.iconPath ?? stats.iconPath ?? null,
     homeNodeId:    homeNodeId,
     currentNodeId: homeNodeId,
     currentRez:    stats.rez,
@@ -84,9 +87,12 @@ export function createIceToken(iceName, homeNodeId, opts = {}) {
     active:        false,
     targetTokenId: null,
     disposition:   opts.disposition ?? "enemy",
-    userId:        opts.userId ?? null,  // if set, this user can control this ICE
+    userId:        opts.userId ?? null,
     isNPC: true, color: "#ff3030",
     ...opts,
+    // Re-apply iconPath after spread so the computed default isn't lost
+    // if opts doesn't contain iconPath (opts.iconPath would be undefined).
+    iconPath: opts.iconPath !== undefined ? opts.iconPath : (stats.iconPath ?? null),
   };
 }
 
@@ -97,7 +103,7 @@ export function createDemonToken(demonName, homeNodeId, opts = {}) {
     type:          "demon",
     name:          demonName,
     demonName:     demonName,
-    iconPath:      null,
+    iconPath:      opts.iconPath !== undefined ? opts.iconPath : (stats.iconPath ?? null),
     homeNodeId:    homeNodeId,
     currentNodeId: homeNodeId,
     currentRez:    stats.rez,
@@ -108,6 +114,7 @@ export function createDemonToken(demonName, homeNodeId, opts = {}) {
     userId:        opts.userId ?? null,
     isNPC: true, color: "#cc44ff",
     ...opts,
+    iconPath: opts.iconPath !== undefined ? opts.iconPath : (stats.iconPath ?? null),
   };
 }
 
@@ -118,8 +125,8 @@ export function createRunState(archId) {
     archId,
     isActive:   true,
     round:      1,
-    tokens:     [],     // unified: runners + ICE + demons
-    nodeStates: {},     // { nodeId: { revealed, beaten } }
+    tokens:     [],
+    nodeStates: {},
     log:        [{ round:1, text:"Run initialized.", timestamp: Date.now() }],
   };
 }
@@ -134,7 +141,7 @@ export function initNodeStates(runState, architecture) {
 
 /**
  * Create tokens from the spawns arrays on architecture nodes.
- * Does NOT reveal the nodes — ICE/demons start hidden.
+ * ICE/demons inherit iconPath from their definition (BLACK_ICE / DEMONS).
  */
 export function initializeSpawns(runState, architecture) {
   for (const node of Object.values(architecture.nodes)) {
@@ -155,8 +162,7 @@ export function initializeSpawns(runState, architecture) {
 }
 
 /**
- * Reset the run: clear all tokens, reset all node states, re-run spawns.
- * Runners are removed too — GM must re-add them.
+ * Reset the run: clear all tokens, reset node states, re-run spawns.
  */
 export function resetRun(runState, architecture) {
   runState.tokens     = [];
@@ -273,8 +279,7 @@ export function applyDamageToToken(runState, tokenId, amount) {
 
 export function beatNode(runState, nodeId) {
   if (!runState.nodeStates[nodeId]) runState.nodeStates[nodeId] = { revealed: false, beaten: false };
-  runState.nodeStates[nodeId].beaten   = true;
-  // Deactivate any ICE that lives here
+  runState.nodeStates[nodeId].beaten = true;
   for (const tok of runState.tokens ?? []) {
     if (tok.homeNodeId === nodeId) tok.active = false;
   }
@@ -283,21 +288,14 @@ export function beatNode(runState, nodeId) {
 // ── Actor sync ────────────────────────────────────────────────────────────────
 
 /**
- * Patch a runner token's stats from a fresh actor stats snapshot.
- * Only updates fields that actually changed to avoid spurious re-renders.
- * Returns true if anything was modified.
- *
- * @param {object} runState
- * @param {string} tokenId
- * @param {{ interfaceRank, codingRank, hpMax, hpCurrent, iconPath, name, color }} actorStats
- * @returns {boolean}
+ * Patch a runner token's stats from a fresh actor snapshot.
+ * Returns true if anything changed.
  */
 export function syncRunnerFromActor(runState, tokenId, actorStats) {
   const tok = findTokenById(runState, tokenId);
   if (!tok || tok.type !== "runner") return false;
 
   let changed = false;
-
   const patch = {
     name:          actorStats.name,
     iconPath:      actorStats.iconPath,
@@ -311,26 +309,17 @@ export function syncRunnerFromActor(runState, tokenId, actorStats) {
   for (const [key, val] of Object.entries(patch)) {
     if (tok[key] !== val) { tok[key] = val; changed = true; }
   }
-
-  // Keep netActionsTotal in sync with interfaceRank
   if (changed) {
     const newTotal = netActionsFromRank(tok.interfaceRank);
     if (tok.netActionsTotal !== newTotal) tok.netActionsTotal = newTotal;
   }
-
   return changed;
 }
 
 // ── Visibility helpers ────────────────────────────────────────────────────────
 /**
- * Compute visibility state for each node from a player's perspective.
- * Returns a Map<nodeId, "revealed"|"questionmark"|"hidden">
- *
- * - "revealed":     GM explicitly revealed this node
- * - "questionmark": Not revealed, but directly connected to a revealed node
- * - "hidden":       No connection to any revealed node
- *
- * GM sees all nodes; this is used only for player rendering.
+ * Compute visibility for each node from a player's perspective.
+ * Returns Map<nodeId, "revealed"|"questionmark"|"hidden">
  */
 export function computeVisibility(architecture, runState) {
   const { nodes, connections = [] } = architecture;
@@ -340,7 +329,6 @@ export function computeVisibility(architecture, runState) {
     Object.keys(ns).filter(id => ns[id]?.revealed)
   );
 
-  // Build adjacency
   const adj = new Map();
   for (const [a, b] of connections) {
     if (!adj.has(a)) adj.set(a, []);

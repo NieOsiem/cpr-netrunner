@@ -1,0 +1,255 @@
+/* ══════════════════════════════════════════════════════════════════════════════
+  CUSTOM ENTITY EDITOR  (Black ICE + Demon)
+══════════════════════════════════════════════════════════════════════════════ */
+.custom-entity-editor .window-content { overflow: hidden; }
+
+.entity-editor-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.entity-editor-layout .entity-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(0,255,204,0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.entity-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.entity-list-item {
+  padding: 7px 9px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  margin-bottom: 3px;
+}
+.entity-list-item:hover  { border-color: rgba(0,255,204,0.2); background: rgba(0,255,204,0.03); }
+.entity-list-item.active { border-color: rgba(0,255,204,0.35); background: rgba(0,255,204,0.05); }
+.entity-list-name { display: block; color: var(--cpr-text); font-size: 12px; }
+.entity-list-meta { display: block; color: var(--cpr-text-dim); font-size: 8px; margin-top: 2px; }
+
+/* Sidebar action buttons — must not stretch to 100% width */
+.entity-sidebar .sidebar-actions {
+  padding: 7px;
+  border-top: 1px solid rgba(0,255,204,0.08);
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.entity-sidebar .sidebar-actions button {
+  width: auto !important;
+  flex: 1;
+}
+
+/* ── Form panel ──────────────────────────────────────────────────────────── */
+.entity-form-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;       /* scrollbar on the form panel itself */
+  padding: 14px 16px;
+}
+
+.entity-form-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0,255,204,0.1);
+  flex-shrink: 0;
+  position: sticky;       /* keep header visible while scrolling */
+  top: 0;
+  background: var(--cpr-bg);
+  z-index: 1;
+}
+.entity-form-title {
+  flex: 1;
+  font-size: 10px;
+  color: rgba(0,255,204,0.35);
+  letter-spacing: 2px;
+}
+/* Save button — explicit width override since Foundry sets button { width: 100% } */
+.entity-form-header .btn-save-entity {
+  width: auto !important;
+  flex-shrink: 0;
+}
+
+.entity-form-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #334455;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+
+/* ── Compact inline stats row ────────────────────────────────────────────── */
+/* Replaces the old prop-row-stats grid. All labels + inputs on one line. */
+.inline-stats-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;        /* gracefully wraps if window is narrow */
+}
+.inline-stat-label {
+  font-size: 9px;
+  color: var(--cpr-text-dim);
+  letter-spacing: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.inline-stat-input {
+  width: 48px !important;
+  text-align: center;
+  flex-shrink: 0;
+  padding: 4px 4px !important;
+}
+
+/* Damage row — formula + type side by side */
+.prop-row-damage {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: end;
+}
+.prop-row-damage .prop-group { margin-bottom: 0; }
+
+/* Icon section — path + browse on one row, preview image below */
+.icon-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.icon-pick-row input { flex: 1; }
+/* Browse button — must not be 100% width */
+.icon-pick-row .btn-pick-icon {
+  width: auto !important;
+  flex-shrink: 0;
+}
+/* Preview image sits below the row, constrained to max 420px on the longer side */
+.icon-preview {
+  display: block;
+  max-width: 420px;
+  max-height: 420px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--cpr-cyan-dim);
+  border-radius: 3px;
+  background: rgba(0,0,0,0.4);
+  margin-top: 4px;
+}
+.icon-preview.hidden { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+  NODE ASSETS EDITOR
+══════════════════════════════════════════════════════════════════════════════ */
+.node-assets-editor .window-content { overflow: hidden; }
+
+.node-assets-layout {
+  padding: 14px 16px;
+  overflow-y: auto;       /* scrollbar on the layout itself */
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.node-assets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-shrink: 0;
+  position: sticky;       /* header stays visible while scrolling */
+  top: 0;
+  background: var(--cpr-bg);
+  padding-bottom: 6px;
+  z-index: 1;
+}
+/* Save All button — must not be 100% width */
+.node-assets-header .btn-save-all {
+  width: auto !important;
+}
+
+.node-assets-hint {
+  font-size: 9px;
+  color: #334455;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.node-type-card {
+  border: 1px solid rgba(0,255,204,0.1);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(0,5,15,0.5);
+  transition: border-color 0.1s;
+}
+.node-type-card.has-override {
+  border-color: rgba(255,221,68,0.25);
+}
+
+.node-type-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.node-type-label {
+  flex: 1;
+  font-size: 10px;
+  color: var(--cpr-cyan);
+  letter-spacing: 1.5px;
+  opacity: 0.7;
+}
+.override-badge {
+  font-size: 7px;
+  color: var(--cpr-yellow);
+  border: 1px solid rgba(255,221,68,0.3);
+  padding: 1px 5px;
+  letter-spacing: 1px;
+}
+/* Reset button — must not be 100% width */
+.btn-reset-type {
+  width: auto !important;
+  font-size: 9px !important;
+  padding: 2px 8px !important;
+  color: rgba(0,255,204,0.5) !important;
+}
+
+.node-type-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.node-type-fields .prop-group { margin-bottom: 0; }
+
+.node-dv-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(0,255,204,0.06);
+}
+.node-dv-fields .prop-group { margin-bottom: 0; }
+.node-dv-label {
+  font-size: 7px;
+  color: #445566;
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}

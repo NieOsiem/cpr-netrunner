@@ -3,14 +3,16 @@
  * CPR Netrunner module entry point.
  *
  * Registers:
- *   - World settings (tile path, arch index, active run, per-arch data)
+ *   - World settings (tile path, arch index, active run, per-arch data,
+ *     custom ICE/Demon JSON, custom node asset paths)
+ *   - Module settings menu buttons (open the new editor apps)
  *   - Hooks (init, ready, tile double-click, updateActor HP sync)
  *   - Socket handlers
  *   - Global API: window.CprNetrunner
  */
 
 import { loadAllArchitectures, loadArchitecture, saveArchitecture } from "./data/architecture.js";
-import { loadCustomBlackIce, loadCustomNodeAssets } from "./data/node-defs.js";
+import { loadCustomBlackIce, loadCustomDemons, loadCustomNodeAssets } from "./data/node-defs.js";
 import { loadRunState, saveRunState } from "./data/run-state.js";
 import { initSocket, onSocket, socketBroadcastState } from "./socket.js";
 import {
@@ -20,6 +22,11 @@ import {
 } from "./data/run-state.js";
 import { openNetrun, getNetrunApp, NetrunApp } from "./apps/netrun-app.js";
 import { ArchEditorApp } from "./apps/arch-editor.js";
+import {
+  openCustomIceEditor, openCustomDemonEditor,
+  OpenIceEditorMenu, OpenDemonEditorMenu,
+} from "./apps/custom-entity-editor.js";
+import { openNodeAssetsEditor, OpenNodeAssetsEditorMenu } from "./apps/node-assets-editor.js";
 import { extractActorStats, actorFromUser, actorFromSelectedToken } from "./data/actor-bridge.js";
 import { MODULE_ID } from "./utils.js";
 
@@ -38,7 +45,7 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "fontScale", {
     name:    "UI Font Scale",
-    hint:    'Scale factor for text in the netrun windows.',
+    hint:    "Scale factor for text in the netrun windows.",
     scope:   "client",
     config:  true,
     type:    Number,
@@ -46,30 +53,6 @@ Hooks.once("init", () => {
     range:   { min: 0.75, max: 2.0, step: 0.05 },
   });
 
-  // TODO - better black ice editor, any demon editor
-  game.settings.register(MODULE_ID, "customBlackIce", {
-    name:    "Custom Black ICE (JSON)",
-    hint:    'Reeeeee',
-    scope:   "world",
-    config:  true,
-    type:    String,
-    default: "",
-  });
-
-  // Custom node assets configuration - allows GMs to override tile paths
-  game.settings.register(MODULE_ID, "customNodeAssets", {
-    name:    "Custom Node Assets (JSON)",
-    hint:    "JSON configuration for customizing node asset folder paths. Format: { \"nodeType\": { \"folder\": \"FOLDER_NAME\", \"baseName\": \"BASE_NAME\" } }",
-    scope:   "world",
-    config:  true,
-    type:    String,
-    default: "{}",
-    onChange: () => {
-      console.log("CPR Netrunner | Custom node assets updated. Reload may be required.");
-    }
-  });
-
-  // TODO - webm tiles don't work
   game.settings.register(MODULE_ID, "useAnimatedTiles", {
     name:    "Use Animated Tiles",
     hint:    "Use .webm animated versions of tiles and icons instead of static .webp. Requires browser support for WebM video.",
@@ -88,6 +71,29 @@ Hooks.once("init", () => {
     default: false,
   });
 
+  // ── Data settings (edited via dedicated apps, not raw text) ─────────────────
+  game.settings.register(MODULE_ID, "customBlackIce", {
+    scope:   "world",
+    config:  false,
+    type:    String,
+    default: "{}",
+  });
+
+  game.settings.register(MODULE_ID, "customDemons", {
+    scope:   "world",
+    config:  false,
+    type:    String,
+    default: "{}",
+  });
+
+  game.settings.register(MODULE_ID, "customNodeAssets", {
+    scope:   "world",
+    config:  false,
+    type:    String,
+    default: "{}",
+  });
+
+  // ── Internal data settings ───────────────────────────────────────────────────
   game.settings.register(MODULE_ID, "arch_index", {
     scope:   "world",
     config:  false,
@@ -102,7 +108,37 @@ Hooks.once("init", () => {
     default: "",
   });
 
-  // Re-register any existing arch settings (from previous sessions)
+  // ── Module settings menu buttons ─────────────────────────────────────────────
+  // These appear as clickable buttons inside the Foundry module settings panel.
+  // Each opens a dedicated editor app. The type must extend FormApplication.
+  game.settings.registerMenu(MODULE_ID, "customBlackIceEditor", {
+    name:       "Custom Black ICE",
+    label:      "Open Editor",
+    hint:       "Add, edit, and delete custom Black ICE entries (including custom token icons).",
+    icon:       "fas fa-skull",
+    type:       OpenIceEditorMenu,
+    restricted: true,
+  });
+
+  game.settings.registerMenu(MODULE_ID, "customDemonEditor", {
+    name:       "Custom Demons",
+    label:      "Open Editor",
+    hint:       "Add, edit, and delete custom Demon entries (including custom token icons).",
+    icon:       "fas fa-ghost",
+    type:       OpenDemonEditorMenu,
+    restricted: true,
+  });
+
+  game.settings.registerMenu(MODULE_ID, "nodeAssetsEditor", {
+    name:       "Node Tile Paths",
+    label:      "Open Editor",
+    hint:       "Customise the folder paths used to look up floor tiles for each node type.",
+    icon:       "fas fa-folder-open",
+    type:       OpenNodeAssetsEditorMenu,
+    restricted: true,
+  });
+
+  // Re-register any existing per-arch settings from previous sessions
   try {
     const ids = JSON.parse(game.settings.get(MODULE_ID, "arch_index") ?? "[]");
     for (const id of ids) {
@@ -136,14 +172,14 @@ Hooks.once("ready", async () => {
   await loadTemplates([
     `modules/${MODULE_ID}/templates/netrun-app.hbs`,
     `modules/${MODULE_ID}/templates/arch-editor.hbs`,
+    `modules/${MODULE_ID}/templates/custom-entity-editor.hbs`,
+    `modules/${MODULE_ID}/templates/node-assets-editor.hbs`,
   ]);
 
   initSocket();
   _registerSocketHandlers();
 
   // ── Tile hook ──────────────────────────────────────────────────────────────
-  // Player: opens with their linked character's stats.
-  // GM:     opens with the currently selected canvas token's actor (if any).
   if (typeof Tile !== "undefined" && typeof Tile.prototype._onClickLeft2 === "function") {
     const _orig = Tile.prototype._onClickLeft2;
     Tile.prototype._onClickLeft2 = function(event) {
@@ -188,8 +224,9 @@ Hooks.once("ready", async () => {
     app.render(false);
   });
 
-  // Load custom configurations from world settings
+  // Load custom entity data from world settings
   loadCustomBlackIce();
+  loadCustomDemons();
   await loadCustomNodeAssets();
 
   const applyFontScale = () => {
@@ -236,9 +273,6 @@ function _registerSocketHandlers() {
     }
   });
 
-  // Player requests to move — GM validates, applies, saves, and broadcasts.
-  // After broadcasting, the GM also updates their own local app instance because
-  // game.socket.emit does NOT deliver messages back to the sender.
   onSocket("requestMove", async (data) => {
     if (!game.user.isGM) return;
     if (game.user !== game.users.activeGM) return;
@@ -266,7 +300,6 @@ function _registerSocketHandlers() {
     await saveRunState(runState);
     socketBroadcastState(runState.archId, runState);
 
-    // Update GM's own app — socket broadcast doesn't loop back to the sender
     const app = getNetrunApp();
     if (app?.archId === runState.archId) {
       app.receiveStateUpdate(runState.archId, runState);
@@ -328,7 +361,6 @@ function _registerSocketHandlers() {
     await saveRunState(runState);
     socketBroadcastState(runState.archId, runState);
 
-    // Update GM's own app
     const app = getNetrunApp();
     if (app?.archId === runState.archId) {
       app.receiveStateUpdate(runState.archId, runState);
@@ -416,6 +448,10 @@ globalThis.CprNetrunner = {
     const actorData  = a ? { ...extractActorStats(a), actorId: a.id } : null;
     return openNetrun(archId, _uid, actorData);
   },
+
+  openBlackIceEditor() { openCustomIceEditor(); },
+  openDemonEditor()    { openCustomDemonEditor(); },
+  openNodeAssetsEditor() { openNodeAssetsEditor(); },
 
   async linkTile(archId) {
     if (!game.user.isGM) return;

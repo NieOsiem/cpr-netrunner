@@ -1,0 +1,142 @@
+<div class="entity-editor-layout">
+
+  {{!-- ── Sidebar ──────────────────────────────────────────────────────────── --}}
+  <div class="entity-sidebar">
+    <div class="sidebar-title">// {{#if isIce}}CUSTOM BLACK ICE{{else}}CUSTOM DEMONS{{/if}}</div>
+
+    <div class="entity-list">
+      {{#each entries}}
+      <div class="entity-list-item {{#if (eq this.name ../selectedName)}}active{{/if}}"
+           data-name="{{this.name}}">
+        <span class="entity-list-name">{{this.name}}</span>
+        {{#if ../isIce}}
+        <span class="entity-list-meta">{{this.class}} · REZ {{this.rez}}</span>
+        {{else}}
+        <span class="entity-list-meta">INT {{this.interface}} · REZ {{this.rez}}</span>
+        {{/if}}
+      </div>
+      {{else}}
+      <div class="empty-hint">No custom entries yet.</div>
+      {{/each}}
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn-new-entity">+ New</button>
+      {{#if selectedName}}<button class="btn-delete-entity danger">✕ Delete</button>{{/if}}
+    </div>
+  </div>
+
+  {{!-- ── Form panel ──────────────────────────────────────────────────────── --}}
+  <div class="entity-form-panel">
+
+    {{#if showForm}}
+
+    <div class="entity-form-header">
+      <span class="entity-form-title">
+        {{#if isNew}}// NEW ENTRY{{else}}// {{selectedName}}{{/if}}
+      </span>
+      <span class="dirty-dot {{#if dirty}}show{{/if}}">●</span>
+      <button class="btn-save-entity">Save</button>
+    </div>
+
+    <div class="entity-form">
+
+      <div class="prop-group">
+        <label>Name <small>{{#unless isNew}}(identifier — delete and recreate to rename){{/unless}}</small></label>
+        <input name="entryName" type="text" value="{{selectedName}}"
+               {{#unless isNew}}readonly{{/unless}}
+               placeholder="MyCustomIce"/>
+      </div>
+
+      {{!-- ── Black ICE fields ── --}}
+      {{#if isIce}}
+
+      <div class="prop-group">
+        <label>Class</label>
+        <select name="iceClass">
+          {{#each iceClasses}}
+          <option value="{{this}}" {{#if (eq this ../formData.class)}}selected{{/if}}>{{this}}</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="prop-group">
+        <label>Stats</label>
+        <div class="inline-stats-row">
+          <span class="inline-stat-label">PER</span>
+          <input class="inline-stat-input" name="per" type="number" min="0" max="10" value="{{formData.per}}"/>
+          <span class="inline-stat-label">SPD</span>
+          <input class="inline-stat-input" name="spd" type="number" min="0" max="10" value="{{formData.spd}}"/>
+          <span class="inline-stat-label">ATK</span>
+          <input class="inline-stat-input" name="atk" type="number" min="0" max="10" value="{{formData.atk}}"/>
+          <span class="inline-stat-label">DEF</span>
+          <input class="inline-stat-input" name="def" type="number" min="0" max="10" value="{{formData.def}}"/>
+          <span class="inline-stat-label">REZ</span>
+          <input class="inline-stat-input" name="rez" type="number" min="0" max="999" value="{{formData.rez}}"/>
+        </div>
+      </div>
+
+      <div class="prop-group">
+        <label>Effect <small>(displayed on the token card during a run)</small></label>
+        <textarea name="effect" rows="2" placeholder="e.g. 2d6 brain + fire (2 HP/turn)">{{formData.effect}}</textarea>
+      </div>
+
+      <div class="prop-row-damage">
+        <div class="prop-group">
+          <label>Damage Formula <small>(optional, e.g. 2d6 — enables clickable damage roll)</small></label>
+          <input name="damageFormula" type="text" value="{{formData.damage.formula}}" placeholder="2d6"/>
+        </div>
+        <div class="prop-group">
+          <label>Damage Type</label>
+          <select name="damageType">
+            {{#each damageTypes}}
+            <option value="{{this}}" {{#if (eq this ../../formData.damage.type)}}selected{{/if}}>{{this}}</option>
+            {{/each}}
+          </select>
+        </div>
+      </div>
+
+      {{!-- ── Demon fields ── --}}
+      {{else}}
+
+      <div class="prop-group">
+        <label>Stats</label>
+        <div class="inline-stats-row">
+          <span class="inline-stat-label">REZ</span>
+          <input class="inline-stat-input" name="rez" type="number" min="0" max="999" value="{{formData.rez}}"/>
+          <span class="inline-stat-label">INT</span>
+          <input class="inline-stat-input" name="interface" type="number" min="1" max="10" value="{{formData.interface}}"/>
+          <span class="inline-stat-label">NET ACT</span>
+          <input class="inline-stat-input" name="netActions" type="number" min="1" max="5" value="{{formData.netActions}}"/>
+          <span class="inline-stat-label">CMB #</span>
+          <input class="inline-stat-input" name="combatNum" type="number" min="1" max="99" value="{{formData.combatNum}}"/>
+        </div>
+      </div>
+
+      {{/if}}
+
+      {{!-- ── Shared: icon path ── --}}
+      <div class="prop-group">
+        <label>Token Icon <small>(image or webm — overrides the default icon lookup)</small></label>
+        <div class="icon-pick-row">
+          <input name="iconPath" type="text" value="{{formData.iconPath}}"
+                 placeholder="modules/…/my-ice.webp (or .webm)"/>
+          <button class="btn-pick-icon">Browse…</button>
+        </div>
+        <img class="icon-preview {{#unless formData.iconPath}}hidden{{/unless}}"
+             src="{{formData.iconPath}}" alt="icon preview"/>
+      </div>
+
+    </div>{{!-- .entity-form --}}
+
+    {{else}}
+
+    <div class="entity-form-empty">
+      <p>// SELECT AN ENTRY OR CREATE A NEW ONE //</p>
+    </div>
+
+    {{/if}}
+
+  </div>{{!-- .entity-form-panel --}}
+
+</div>

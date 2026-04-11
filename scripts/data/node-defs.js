@@ -2,82 +2,76 @@
  * node-defs.js
  * CPR entity statblocks, node types, and path resolution.
  *
- * BLACK_ICE can be extended/overridden at runtime via the "customBlackIce"
- * TODO: add this for demons
- * TODO: add option for specific custom image instead of just tileFolder
- * world setting (JSON). On module ready, loadCustomBlackIce() merges it in.
+ * BLACK_ICE and DEMONS can be extended at runtime via world settings.
+ * Call loadCustomBlackIce() and loadCustomDemons() once on module ready.
+ *
+ * NODE_ASSET_CONFIG is the mutable working copy of tile-path configuration.
+ * DEFAULT_NODE_ASSET_CONFIG is the immutable hardcoded baseline.
+ * loadCustomNodeAssets() resets NODE_ASSET_CONFIG to defaults then merges overrides,
+ * so it is safe to call multiple times (e.g. after the editor saves).
  */
 
 import { MODULE_ID } from "../utils.js";
 
 // ── Node Types ─────────────────────────────────────────────────────────────────
 export const NODE_TYPES = {
-  black_ice:    { label: "Black ICE",    color: "#ff3030" },
-  password:     { label: "Password",     color: "#4488ff" },
-  file:         { label: "File",         color: "#44ff88" },
-  control_node: { label: "Control Node", color: "#ffaa00" },
-  system:       { label: "System / Root",color: "#00aaff" },
-  empty:        { label: "Empty Node",   color: "#445566" },
-  demon:        { label: "Demon",        color: "#cc44ff" },
+  black_ice:    { label: "Black ICE",     color: "#ff3030" },
+  password:     { label: "Password",      color: "#4488ff" },
+  file:         { label: "File",          color: "#44ff88" },
+  control_node: { label: "Control Node",  color: "#ffaa00" },
+  system:       { label: "System / Root", color: "#00aaff" },
+  empty:        { label: "Empty Node",    color: "#445566" },
+  demon:        { label: "Demon",         color: "#cc44ff" },
 };
 
-// ── Black ICE ─────────────────────────────────────────────────────────────────
+// ── Black ICE ──────────────────────────────────────────────────────────────────
 // damage: { formula, type }
 //   type "brain"   — damage applied to a runner's HP / brain damage track
 //   type "program" — damage applied to a program's REZ
 //   type "stat"    — debuff to INT/REF/DEX (still useful to flag for display)
+//
+// Custom entries are merged in by loadCustomBlackIce() at runtime.
+// iconPath (optional) — specific file path for this ICE's token icon.
 export const BLACK_ICE = {
   Asp:       { per:4, spd:6, atk:2, def:2, rez:15, class:"Anti-Personnel",
-               effect:"Destroy random Program",
-               tileFolder:"ASP" },
+               effect:"Destroy random Program" },
   Giant:     { per:2, spd:2, atk:8, def:4, rez:25, class:"Anti-Personnel",
                effect:"3d6 brain + unsafe Jack Out + all Rezzed enemy Black ICE effects",
-               damage:{ formula:"3d6", type:"brain" },
-               tileFolder:"GIANT" },
+               damage:{ formula:"3d6", type:"brain" } },
   Hellhound: { per:6, spd:6, atk:6, def:2, rez:20, class:"Anti-Personnel",
                effect:"2d6 brain + fire (2 HP/turn until Meat Action extinguishes)",
-               damage:{ formula:"2d6", type:"brain" },
-               tileFolder:"HELLHOUND" },
+               damage:{ formula:"2d6", type:"brain" } },
   Kraken:    { per:6, spd:2, atk:8, def:4, rez:30, class:"Anti-Personnel",
                effect:"3d6 brain + block progress/safe Jack Out until end of next Turn",
-               damage:{ formula:"3d6", type:"brain" },
-               tileFolder:"KRAKEN" },
+               damage:{ formula:"3d6", type:"brain" } },
   Liche:     { per:8, spd:2, atk:6, def:2, rez:25, class:"Anti-Personnel",
                effect:"INT/REF/DEX -1d6 (min 1) for 1 hour",
-               damage:{ formula:"1d6", type:"stat" },
-               tileFolder:"LICHE" },
+               damage:{ formula:"1d6", type:"stat" } },
   Raven:     { per:6, spd:4, atk:4, def:2, rez:15, class:"Anti-Personnel",
                effect:"Derezz random Defender + 1d6 brain",
-               damage:{ formula:"1d6", type:"brain" },
-               tileFolder:"RAVEN" },
+               damage:{ formula:"1d6", type:"brain" } },
   Scorpion:  { per:2, spd:6, atk:2, def:2, rez:15, class:"Anti-Personnel",
                effect:"MOVE -1d6 (min 1) for 1 hour",
-               damage:{ formula:"1d6", type:"stat" },
-               tileFolder:"SCORPION" },
+               damage:{ formula:"1d6", type:"stat" } },
   Skunk:     { per:2, spd:4, atk:4, def:2, rez:10, class:"Anti-Personnel",
-               effect:"Slide Checks -2 (stacks)",
-               tileFolder:"SKUNK" },
+               effect:"Slide Checks -2 (stacks)" },
   Wisp:      { per:4, spd:4, atk:4, def:2, rez:15, class:"Anti-Personnel",
                effect:"1d6 brain + -1 NET Actions next Turn (min 2)",
-               damage:{ formula:"1d6", type:"brain" },
-               tileFolder:"WISP" },
+               damage:{ formula:"1d6", type:"brain" } },
   Dragon:    { per:6, spd:4, atk:6, def:6, rez:30, class:"Anti-Program",
                effect:"6d6 REZ to Program (Destroy if enough to Derezz)",
-               damage:{ formula:"6d6", type:"program" },
-               tileFolder:"DRAGON" },
+               damage:{ formula:"6d6", type:"program" } },
   Killer:    { per:4, spd:8, atk:6, def:2, rez:20, class:"Anti-Program",
                effect:"4d6 REZ to Program (Destroy if enough to Derezz)",
-               damage:{ formula:"4d6", type:"program" },
-               tileFolder:"KILLER" },
+               damage:{ formula:"4d6", type:"program" } },
   Sabertooth:{ per:8, spd:6, atk:6, def:2, rez:25, class:"Anti-Program",
                effect:"6d6 REZ to Program (Destroy if enough to Derezz)",
-               damage:{ formula:"6d6", type:"program" },
-               tileFolder:"SABERTOOTH" },
+               damage:{ formula:"6d6", type:"program" } },
 };
 
 /**
  * Merge custom ICE from the world setting into BLACK_ICE at runtime.
- * Call once on module ready.
+ * Safe to call multiple times — later calls overwrite earlier custom merges.
  */
 export function loadCustomBlackIce() {
   try {
@@ -90,54 +84,36 @@ export function loadCustomBlackIce() {
     console.log(`CPR Netrunner | Loaded ${Object.keys(custom).length} custom Black ICE entries.`);
   } catch (e) {
     console.warn("CPR Netrunner | Failed to parse customBlackIce setting:", e);
-    ui.notifications?.warn("CPR Netrunner | Custom Black ICE JSON is invalid — check Module Settings.");
-  }
-}
-
-/**
- * Load custom node asset configurations from world settings and merge them
- * into NODE_ASSET_CONFIG at runtime. Called once on module ready.
- * 
- * @returns {Promise<void>}
- */
-export async function loadCustomNodeAssets() {
-  try {
-    const raw = game.settings.get(MODULE_ID, "customNodeAssets");
-    if (!raw || raw.trim() === "" || raw.trim() === "{}") return;
-    
-    const custom = JSON.parse(raw);
-    let count = 0;
-    
-    for (const [nodeType, config] of Object.entries(custom)) {
-      if (NODE_ASSET_CONFIG[nodeType]) {
-        // Merge with existing config, preserving unspecified properties
-        NODE_ASSET_CONFIG[nodeType] = {
-          ...NODE_ASSET_CONFIG[nodeType],
-          ...config
-        };
-        count++;
-      } else {
-        // Add entirely new node type if it doesn't exist
-        NODE_ASSET_CONFIG[nodeType] = config;
-        count++;
-      }
-    }
-    
-    if (count > 0) {
-      console.log(`CPR Netrunner | Loaded ${count} custom node asset configurations.`);
-    }
-  } catch (e) {
-    console.warn("CPR Netrunner | Failed to parse customNodeAssets setting:", e);
-    ui.notifications?.warn("CPR Netrunner | Custom Node Assets JSON is invalid — check Module Settings.");
+    ui.notifications?.warn("CPR Netrunner | Custom Black ICE JSON is invalid — check the editor.");
   }
 }
 
 // ── Demons ────────────────────────────────────────────────────────────────────
+// iconPath (optional) — specific file path for this Demon's token icon.
 export const DEMONS = {
-  Imp:    { rez:15, interface:3, netActions:2, combatNum:14, tileFolder:"IMP" },
-  Efreet: { rez:25, interface:4, netActions:3, combatNum:14, tileFolder:"EFREET" },
-  Balron: { rez:30, interface:7, netActions:4, combatNum:14, tileFolder:"BALRON" },
+  Imp:    { rez:15, interface:3, netActions:2, combatNum:14 },
+  Efreet: { rez:25, interface:4, netActions:3, combatNum:14 },
+  Balron: { rez:30, interface:7, netActions:4, combatNum:14 },
 };
+
+/**
+ * Merge custom Demons from the world setting into DEMONS at runtime.
+ * Safe to call multiple times.
+ */
+export function loadCustomDemons() {
+  try {
+    const raw = game.settings.get(MODULE_ID, "customDemons");
+    if (!raw || raw.trim() === "" || raw.trim() === "{}") return;
+    const custom = JSON.parse(raw);
+    for (const [name, stats] of Object.entries(custom)) {
+      DEMONS[name] = { ...(DEMONS[name] ?? {}), ...stats };
+    }
+    console.log(`CPR Netrunner | Loaded ${Object.keys(custom).length} custom Demon entries.`);
+  } catch (e) {
+    console.warn("CPR Netrunner | Failed to parse customDemons setting:", e);
+    ui.notifications?.warn("CPR Netrunner | Custom Demons JSON is invalid — check the editor.");
+  }
+}
 
 // ── Programs ──────────────────────────────────────────────────────────────────
 export const PROGRAMS = {
@@ -162,63 +138,91 @@ export const PROGRAMS = {
 export const DV_BY_DIFFICULTY = { basic:6, standard:8, uncommon:10, advanced:12 };
 
 // ── Node Asset Configuration ──────────────────────────────────────────────────
+
 /**
- * Maps node types to their asset folder and tile naming conventions.
- * This configuration can be extended via world settings for custom setups.
- * 
- * For node types with DV variants:
- * - The base folder contains generic tiles (no DV-specific version)
- * - DV variant folders are named {BASE_FOLDER}-DV{value} (e.g., PASSWORD-DV6)
- * - Tile files in DV folders follow the pattern {FOLDER_NAME}-TILE ({variant}).ext
- *   Example: PASSWORD-DV6/PASSWORD-DV6-TILE (1).webp
+ * Hardcoded baseline configuration. Never mutated.
+ * Exported so the NodeAssetsEditorApp can compare against it.
  */
-export const NODE_ASSET_CONFIG = {
+export const DEFAULT_NODE_ASSET_CONFIG = {
   black_ice: {
-    folder: "BLACKICE",
-    baseName: "BLACKICE-TILE",
-    supportsDV: false,
-    defaultColor: "#ff3030"
+    folder: "BLACKICE", baseName: "BLACKICE-TILE",
+    supportsDV: false, defaultColor: "#ff3030",
   },
   password: {
-    folder: "PASSWORD",
-    baseName: "PASSWORD-TILE",
+    folder: "PASSWORD", baseName: "PASSWORD-TILE",
     supportsDV: true,
     dvFolders: ["PASSWORD-DV6", "PASSWORD-DV8", "PASSWORD-DV10", "PASSWORD-DV12"],
-    defaultColor: "#4488ff"
+    defaultColor: "#4488ff",
   },
   file: {
-    folder: "FILE",
-    baseName: "FILE-TILE",
+    folder: "FILE", baseName: "FILE-TILE",
     supportsDV: true,
     dvFolders: ["FILE-DV6", "FILE-DV8", "FILE-DV10", "FILE-DV12"],
-    defaultColor: "#44ff88"
+    defaultColor: "#44ff88",
   },
   control_node: {
-    folder: "CONTROLNODE",
-    baseName: "CONTROLNODE-TILE",
+    folder: "CONTROLNODE", baseName: "CONTROLNODE-TILE",
     supportsDV: true,
     dvFolders: ["CONTROLNODE-DV6", "CONTROLNODE-DV8", "CONTROLNODE-DV10", "CONTROLNODE-DV12"],
-    defaultColor: "#ffaa00"
+    defaultColor: "#ffaa00",
   },
   system: {
-    folder: "ROOT",
-    baseName: "ROOT-TILE",
-    supportsDV: false,
-    defaultColor: "#00aaff"
+    folder: "ROOT", baseName: "ROOT-TILE",
+    supportsDV: false, defaultColor: "#00aaff",
   },
   empty: {
-    folder: "BLANK-TILES/SKY",
-    baseName: "BG-SKY",
-    supportsDV: false,
-    defaultColor: "#445566"
+    folder: "BLANK-TILES/SKY", baseName: "BG-SKY",
+    supportsDV: false, defaultColor: "#445566",
   },
   demon: {
-    folder: "DEMON",
-    baseName: "DEMON-TILE",
-    supportsDV: false,
-    defaultColor: "#cc44ff"
-  }
+    folder: "DEMON", baseName: "DEMON-TILE",
+    supportsDV: false, defaultColor: "#cc44ff",
+  },
 };
+
+/**
+ * Mutable working copy — starts equal to defaults.
+ * loadCustomNodeAssets() resets this to defaults then merges world-setting overrides,
+ * so calling it multiple times (e.g. after the editor saves) is always safe.
+ */
+export const NODE_ASSET_CONFIG = JSON.parse(JSON.stringify(DEFAULT_NODE_ASSET_CONFIG));
+
+/**
+ * Load custom node asset paths from world settings into NODE_ASSET_CONFIG.
+ * Always resets to defaults first to prevent stale data from previous calls.
+ */
+export async function loadCustomNodeAssets() {
+  // Reset to hardcoded defaults before merging so successive calls are idempotent
+  for (const [key, def] of Object.entries(DEFAULT_NODE_ASSET_CONFIG)) {
+    NODE_ASSET_CONFIG[key] = JSON.parse(JSON.stringify(def));
+  }
+
+  try {
+    const raw = game.settings.get(MODULE_ID, "customNodeAssets");
+    if (!raw || raw.trim() === "" || raw.trim() === "{}") return;
+
+    const custom = JSON.parse(raw);
+    let count = 0;
+
+    for (const [nodeType, config] of Object.entries(custom)) {
+      const base = DEFAULT_NODE_ASSET_CONFIG[nodeType];
+      if (base) {
+        // Merge over the default, preserving structural fields like supportsDV
+        NODE_ASSET_CONFIG[nodeType] = { ...base, ...config };
+      } else {
+        NODE_ASSET_CONFIG[nodeType] = config;
+      }
+      count++;
+    }
+
+    if (count > 0) {
+      console.log(`CPR Netrunner | Loaded ${count} custom node asset path(s).`);
+    }
+  } catch (e) {
+    console.warn("CPR Netrunner | Failed to parse customNodeAssets setting:", e);
+    ui.notifications?.warn("CPR Netrunner | Custom Node Assets JSON is invalid — check the editor.");
+  }
+}
 
 // ── Floor tile image path ─────────────────────────────────────────────────────
 export function tileExt() {
@@ -227,64 +231,36 @@ export function tileExt() {
 }
 
 /**
- * Universal function to get the correct tile image path for any node type.
- * 
+ * Resolve the floor-tile image path for a node.
+ *
  * @param {string} tilesRoot - Base path to the tiles directory
- * @param {string} nodeType - Type of node (from NODE_TYPES)
- * @param {object} nodeData - Node's data object (may contain dv, etc.)
- * @param {number} variant - Tile variant number (1-13) for randomization
+ * @param {string} nodeType  - Key from NODE_TYPES
+ * @param {object} nodeData  - Node data object (may contain .dv)
+ * @param {number} variant   - 1–13 tile variant index
  * @returns {string} Full path to the tile image
- * 
- * Logic:
- * - If node has DV and type supports DV variants: try exact DV match first
- * - Fall back to generic tile for that type if DV variant doesn't exist
- * - For nodes without DV: use generic tile directly
- * - TODO: Add support for manually selecting TILE vs 3X3 variant per node
- * - TODO: Add GM option to force generic tile even when DV variant exists
  */
 export function getTileImagePath(tilesRoot, nodeType, nodeData, variant = 1) {
-  const config = NODE_ASSET_CONFIG[nodeType];
-  
-  // Fallback to empty sky tile if node type is unknown
-  if (!config) {
-    console.warn(`CPR Netrunner | Unknown node type "${nodeType}", using empty tile.`);
-    config = NODE_ASSET_CONFIG.empty;
-  }
-  
+  // Fallback for unknown types — use empty sky tile
+  const config = NODE_ASSET_CONFIG[nodeType] ?? NODE_ASSET_CONFIG.empty;
+
   const { folder, baseName, supportsDV, dvFolders } = config;
   const ext = tileExt();
-  const v = Math.max(1, Math.min(13, Math.round(variant)));
-  
-  // Check if we should use a DV-specific variant
-  if (supportsDV && nodeData?.dv !== undefined && nodeData.dv !== null && dvFolders) {
+  const v   = Math.max(1, Math.min(13, Math.round(variant)));
+
+  // DV-specific tile variant
+  if (supportsDV && dvFolders && nodeData?.dv != null) {
     const dvValue = parseInt(nodeData.dv);
-    
-    // Determine the DV folder based on exact DV value
-    // DV6 for <=7, DV8 for 8-9, DV10 for 10-11, DV12 for >=12
     let dvFolder;
-    if (dvValue <= 7) {
-      dvFolder = dvFolders[0]; // PASSWORD-DV6, FILE-DV6, etc.
-    } else if (dvValue <= 9) {
-      dvFolder = dvFolders[1]; // PASSWORD-DV8, FILE-DV8, etc.
-    } else if (dvValue <= 11) {
-      dvFolder = dvFolders[2]; // PASSWORD-DV10, FILE-DV10, etc.
-    } else {
-      dvFolder = dvFolders[3]; // PASSWORD-DV12, FILE-DV12, etc.
-    }
-    
-    // Construct path for DV-specific tile
-    // Format: {tilesRoot}/PASSWORD-DV6/PASSWORD-DV6-TILE (1).webp
-    // The tile file in DV folders uses the pattern {FOLDER_NAME}-TILE ({variant}).ext
-    const dvBaseName = `${dvFolder}-TILE`; // e.g., "PASSWORD-DV6-TILE"
-    const dvPath = `${tilesRoot}/${dvFolder}/${dvBaseName} (${v}).${ext}`;
-    
-    // Return DV-specific path
-    // Note: Foundry will show a placeholder if the file doesn't exist
-    // TODO: Implement FilePicker check to verify file exists before returning
-    return dvPath;
+    if      (dvValue <= 7)  dvFolder = dvFolders[0];
+    else if (dvValue <= 9)  dvFolder = dvFolders[1];
+    else if (dvValue <= 11) dvFolder = dvFolders[2];
+    else                    dvFolder = dvFolders[3];
+
+    const dvBaseName = `${dvFolder}-TILE`;
+    return `${tilesRoot}/${dvFolder}/${dvBaseName} (${v}).${ext}`;
   }
-  
-  // Return generic tile path for this node type
+
+  // Generic tile
   return `${tilesRoot}/${folder}/${baseName} (${v}).${ext}`;
 }
 
@@ -326,24 +302,16 @@ export function getNodeTypeIconPath(tilesRoot, nodeType, nodeData) {
 // ── Tile variant folder scanning ──────────────────────────────────────────────
 
 /**
- * Returns the folder path and filename prefix for tile variants of the given
- * node type. Used to browse the actual files rather than assume a count.
- * Updated to use NODE_ASSET_CONFIG for all node types.
+ * Returns the folder path and filename prefix used for tile variant browsing.
  */
 export function getTileScanFolder(tilesRoot, nodeType) {
-  const config = NODE_ASSET_CONFIG[nodeType];
-  if (!config) {
-    // Fallback to empty sky tiles for unknown types
-    return { folder: `${tilesRoot}/BLANK-TILES/SKY`, prefix: "BG-SKY" };
-  }
-  
+  const config = NODE_ASSET_CONFIG[nodeType] ?? NODE_ASSET_CONFIG.empty;
   return { folder: `${tilesRoot}/${config.folder}`, prefix: config.baseName };
 }
 
 /**
- * Browse the tile folder for the given node type and return a sorted array of
- * path stems (full path minus extension).
- * Returns [] on any browse error (e.g. folder not found).
+ * Browse the tile folder for the given node type and return sorted path stems
+ * (full path minus extension). Returns [] on any browse error.
  */
 export async function scanTileVariants(tilesRoot, nodeType) {
   const { folder, prefix } = getTileScanFolder(tilesRoot, nodeType);
@@ -355,7 +323,7 @@ export async function scanTileVariants(tilesRoot, nodeType) {
         return name.startsWith(prefix) && name.endsWith(".webp");
       })
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
-      .map(f => f.replace(/\.webp$/, ""));  // store stem, not full URL
+      .map(f => f.replace(/\.webp$/, ""));
   } catch (e) {
     console.warn(`CPR Netrunner | Failed to scan tile folder "${folder}":`, e);
     return [];
