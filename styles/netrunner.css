@@ -439,6 +439,11 @@ img { border: none; }
   border-radius: 2px;
   overflow: hidden;
   margin-top: 2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.token:hover .token-rez-bar {
+  opacity: 1;
 }
 .token-rez-fill {
   height: 100%;

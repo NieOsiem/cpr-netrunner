@@ -1,0 +1,60 @@
+<div class="node-assets-layout">
+
+  <div class="node-assets-header">
+    <span class="sidebar-title" style="padding:0">// TILE ASSET PATHS</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="dirty-dot {{#if dirty}}show{{/if}}">●</span>
+      <button class="btn-save-all">Save All</button>
+    </div>
+  </div>
+
+  <p class="node-assets-hint">
+    Paths are relative to your Foundry Data root and the NetrunningTilesV2 setting.
+    Leave blank to use defaults. Changes take effect immediately after saving.
+  </p>
+
+  {{#each nodeTypes}}
+  <div class="node-type-card {{#if this.hasOverride}}has-override{{/if}}" data-type="{{this.key}}">
+
+    <div class="node-type-card-header">
+      <span class="node-type-label">// {{this.label}}</span>
+      {{#if this.hasOverride}}<span class="override-badge">CUSTOM</span>{{/if}}
+      <button class="btn-reset-type" data-type="{{this.key}}" title="Reset to defaults">↺ Reset</button>
+    </div>
+
+    <div class="node-type-fields">
+      <div class="prop-group">
+        <label>Folder <small>(default: {{this.defaultFolder}})</small></label>
+        <input name="folder" type="text" value="{{this.folder}}" placeholder="{{this.defaultFolder}}"/>
+      </div>
+      <div class="prop-group">
+        <label>Base Name <small>(default: {{this.defaultBaseName}})</small></label>
+        <input name="baseName" type="text" value="{{this.baseName}}" placeholder="{{this.defaultBaseName}}"/>
+      </div>
+    </div>
+
+    {{#if this.supportsDV}}
+    <div class="node-dv-fields">
+      <div class="prop-group">
+        <div class="node-dv-label">DV 6 FOLDER</div>
+        <input name="dvFolder0" type="text" value="{{this.dvFolder0}}" placeholder="{{this.defaultDV.[0]}}"/>
+      </div>
+      <div class="prop-group">
+        <div class="node-dv-label">DV 8 FOLDER</div>
+        <input name="dvFolder1" type="text" value="{{this.dvFolder1}}" placeholder="{{this.defaultDV.[1]}}"/>
+      </div>
+      <div class="prop-group">
+        <div class="node-dv-label">DV 10 FOLDER</div>
+        <input name="dvFolder2" type="text" value="{{this.dvFolder2}}" placeholder="{{this.defaultDV.[2]}}"/>
+      </div>
+      <div class="prop-group">
+        <div class="node-dv-label">DV 12 FOLDER</div>
+        <input name="dvFolder3" type="text" value="{{this.dvFolder3}}" placeholder="{{this.defaultDV.[3]}}"/>
+      </div>
+    </div>
+    {{/if}}
+
+  </div>
+  {{/each}}
+
+</div>
