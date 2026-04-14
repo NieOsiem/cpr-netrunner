@@ -11,7 +11,7 @@
     { "name": "NotEight" }
   ],
   "esmodules": ["scripts/main.js"],
-  "styles": ["styles/netrunner.css"],
+  "styles": ["styles/netrunner.css", "styles/new-editors.css"],
   "socket": true,
   "flags": {}
 }
